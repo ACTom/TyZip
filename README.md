@@ -25,7 +25,7 @@ TyZip 是 macOS 上的归档管理器。打开压缩包后，包内目录像普�
 
 ## 下载与安装
 
-源码公开在 [GitHub](https://github.com/ACTom/TyZip)。目前还没有 GitHub Releases 页面，分发包可自行按[构建文档](docs/BUILDING.md)构建，或使用群内分享的 zip（命名如下）：
+源码与分发包都在 [GitHub](https://github.com/ACTom/TyZip)，下载见 [Releases](https://github.com/ACTom/TyZip/releases)。分发包命名如下：
 
 | 架构 | 文件名 |
 | --- | --- |
