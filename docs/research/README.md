@@ -3,8 +3,10 @@
 Dated research and gap analyses kept for provenance, **not** current
 documentation. Numbers, file lists and "not implemented" claims in here are
 true only as of the commit and date stated at the top of each file; the
-repository moved on. For current behaviour read `README.md`, `docs/`, the
-code and `tests/`.
+repository moved on. Commit ids in these snapshots predate the 2026-11-09
+history reset, so they cannot be resolved in this repository — go by the date,
+version and function names instead. For current behaviour read `README.md`,
+`docs/`, the code and `tests/`.
 
 | File | What it is | Snapshot |
 |---|---|---|
