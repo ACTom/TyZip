@@ -1,0 +1,36 @@
+# Build output: lib/ is the debug/test app build, bin/ its packaged .app and
+# test zips; dist/ is the release build (Release build mode) and its zips.
+/lib/
+/bin/
+/dist/
+*.o
+*.or
+*.ppu
+*.ppl
+*.a
+*.dylib
+*.so
+
+# Lazarus/FPC project state: per-machine compiler paths, local caches.
+# The project builds without it (lazbuild re-creates it from TyZip.lpi).
+/.lazarus/
+*.lps
+*.lpk.lps
+*.compiled
+backup/
+
+# Preview test binaries (tests/run_preview_tests.sh writes to $TMPDIR)
+/tests/units/
+
+# Test-runner build lock (tests/run_all.sh)
+/.tyzip-build.lock/
+
+# macOS
+.DS_Store
+
+# Local agent/issue-tracker workspace: internal tickets, review notes, handoff
+# docs. Local-only on purpose — the public repo does not carry these.
+/.scratch/
+
+# Harness write probe (not part of the project)
+.dsh-write-probe

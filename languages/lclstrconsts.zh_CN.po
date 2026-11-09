@@ -1,0 +1,107 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: TyZip\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: rsMacOSMenuAbout
+msgid "About %s"
+msgstr "关于 %s"
+
+#: rsMacOSMenuPreferences
+msgid "Preferences..."
+msgstr "设置…"
+
+#: rsMacOSMenuHide
+msgid "Hide %s"
+msgstr "隐藏 %s"
+
+#: rsMacOSMenuHideOthers
+msgid "Hide Others"
+msgstr "隐藏其他"
+
+#: rsMacOSMenuQuit
+msgid "Quit %s"
+msgstr "退出 %s"
+
+#: rsMacOSMenuServices
+msgid "Services"
+msgstr "服务"
+
+#: rsMacOSMenuShowAll
+msgid "Show All"
+msgstr "全部显示"
+
+#: rsMacOSEditMenuUndo
+msgid "Undo"
+msgstr "撤销"
+
+#: rsMacOSEditMenuRedo
+msgid "Redo"
+msgstr "重做"
+
+#: rsMacOSEditMenuCut
+msgid "Cut"
+msgstr "剪切"
+
+#: rsMacOSEditMenuCopy
+msgid "Copy"
+msgstr "拷贝"
+
+#: rsMacOSEditMenuPaste
+msgid "Paste"
+msgstr "粘贴"
+
+#: rsMacOSEditMenuSelectAll
+msgid "Select All"
+msgstr "全选"
+
+#: rsMbOK
+msgid "&OK"
+msgstr "确定"
+
+#: rsMbCancel
+msgid "Cancel"
+msgstr "取消"
+
+#: rsMbYes
+msgid "&Yes"
+msgstr "是"
+
+#: rsMbNo
+msgid "&No"
+msgstr "否"
+
+#: rsMbClose
+msgid "&Close"
+msgstr "关闭"
+
+#: rsMbAbort
+msgid "Abort"
+msgstr "中止"
+
+#: rsMbRetry
+msgid "&Retry"
+msgstr "重试"
+
+#: rsMbIgnore
+msgid "&Ignore"
+msgstr "忽略"
+
+#: rsMbAll
+msgid "&All"
+msgstr "全部"
+
+#: rsMbNoToAll
+msgid "No to all"
+msgstr "全部否"
+
+#: rsMbYesToAll
+msgid "Yes to &All"
+msgstr "全部是"
+
+#: rsMbHelp
+msgid "&Help"
+msgstr "帮助"

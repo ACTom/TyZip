@@ -1,0 +1,1054 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: TyZip 1.0\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ready"
+msgstr "就绪"
+
+msgid "Open or drop an archive"
+msgstr "打开或拖入压缩包"
+
+msgid "Browse Files…"
+msgstr "浏览文件…"
+
+msgid "Browse Folder…"
+msgstr "浏览文件夹…"
+
+msgid "Choose a folder to browse"
+msgstr "选择要浏览的文件夹"
+
+msgid "Recently opened"
+msgstr "最近打开"
+
+msgid "File"
+msgstr "文件"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Go"
+msgstr "前往"
+
+msgid "View"
+msgstr "查看"
+
+msgid "Tools"
+msgstr "工具"
+
+msgid "Help"
+msgstr "帮助"
+
+msgid "New Archive…"
+msgstr "新建压缩包…"
+
+msgid "Open Archive…"
+msgstr "打开压缩包…"
+
+msgid "Close Archive"
+msgstr "关闭压缩包"
+
+msgid "Extract…"
+msgstr "解压…"
+
+msgid "Test Archive"
+msgstr "测试压缩包"
+
+msgid "Archive Information"
+msgstr "压缩包信息"
+
+msgid "Exit"
+msgstr "退出"
+
+msgid "Select All"
+msgstr "全选"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Add Files…"
+msgstr "添加文件…"
+
+msgid "Add Folder…"
+msgstr "添加文件夹…"
+
+msgid "Back"
+msgstr "后退"
+
+msgid "Forward"
+msgstr "前进"
+
+msgid "Enclosing Folder"
+msgstr "上级文件夹"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Show Hidden Files"
+msgstr "显示隐藏文件"
+
+msgid "Sidebar"
+msgstr "侧边栏"
+
+msgid "Preview Pane"
+msgstr "预览窗格"
+
+msgid "Settings…"
+msgstr "设置…"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Theme"
+msgstr "主题"
+
+msgid "Appearance"
+msgstr "外观"
+
+msgid "About TyZip"
+msgstr "关于 TyZip"
+
+msgid "New"
+msgstr "新建"
+
+msgid "Open"
+msgstr "打开"
+
+msgid "Extract"
+msgstr "解压"
+
+msgid "Test"
+msgstr "测试"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Info"
+msgstr "信息"
+
+msgid "Filter by name…"
+msgstr "按名称筛选…"
+
+msgid "Preview"
+msgstr "预览"
+
+msgid "Show preview pane"
+msgstr "显示预览窗格"
+
+msgid "Hide preview pane"
+msgstr "隐藏预览窗格"
+
+msgid "Select a file to preview"
+msgstr "选择文件以预览"
+
+msgid "Loading preview of %s…"
+msgstr "正在加载预览：%s"
+
+msgid "… preview truncated"
+msgstr "… 预览已截断"
+
+msgid "No preview available for %s"
+msgstr "无可用预览：%s"
+
+msgid "%s is too large to preview"
+msgstr "%s 文件过大，无法预览"
+
+msgid "Cannot preview %s"
+msgstr "无法预览 %s"
+
+msgid "Open as Archive"
+msgstr "作为压缩包打开"
+
+msgid "Extract Here"
+msgstr "解压到此处"
+
+msgid "Show in Finder"
+msgstr "在 Finder 中显示"
+
+msgid "Copy Path"
+msgstr "复制路径"
+
+msgid "Places"
+msgstr "位置"
+
+msgid "Archive"
+msgstr "压缩包"
+
+msgid "Folder"
+msgstr "文件夹"
+
+msgid "%d items  ·  %d selected  ·  %s"
+msgstr "%d 个项目  ·  已选 %d  ·  %s"
+
+msgid "%s  ·  %d items  ·  %d selected  ·  %s  ·  %s"
+msgstr "%s  ·  %d 个项目  ·  已选 %d  ·  %s  ·  %s"
+
+msgid "encrypted"
+msgstr "已加密"
+
+msgid "Created %s"
+msgstr "已创建 %s"
+
+msgid "Extracted %d item(s) to %s"
+msgstr "已解压 %d 个项目到 %s"
+
+msgid "Deleted %d entries."
+msgstr "已删除 %d 个条目。"
+
+msgid "Added %d entries."
+msgstr "已添加 %d 个条目。"
+
+msgid "Folder added."
+msgstr "已添加文件夹。"
+
+msgid "%s — %s (%s)"
+msgstr "%s — %s（%s）"
+
+msgid "Loading folder %s…"
+msgstr "正在载入文件夹 %s…"
+
+msgid "Opening archive %s…"
+msgstr "正在打开压缩包 %s…"
+
+msgid "Reading archive %s…"
+msgstr "正在读取压缩包 %s…"
+
+msgid "Extracting %s…"
+msgstr "正在解压 %s…"
+
+msgid "Name"
+msgstr "名称"
+
+msgid "Size"
+msgstr "大小"
+
+msgid "Packed"
+msgstr "压缩后"
+
+msgid "Ratio"
+msgstr "压缩比"
+
+msgid "Modified"
+msgstr "修改时间"
+
+msgid "Created"
+msgstr "创建时间"
+
+msgid "Accessed"
+msgstr "访问时间"
+
+msgid "Attributes"
+msgstr "属性"
+
+msgid "CRC"
+msgstr "CRC"
+
+msgid "Method"
+msgstr "方法"
+
+msgid "Encrypted"
+msgstr "加密"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Comment"
+msgstr "注释"
+
+msgid "Index"
+msgstr "索引"
+
+msgid "Password"
+msgstr "密码"
+
+msgid "This archive needs a password."
+msgstr "此压缩包需要密码。"
+
+msgid "Password for %s"
+msgstr "%s 的密码"
+
+msgid "Wrong password for %s. Try again:"
+msgstr "%s 的密码错误，请重新输入："
+
+msgid "Show password"
+msgstr "显示密码"
+
+msgid "OK"
+msgstr "确定"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Choose…"
+msgstr "选择…"
+
+msgid "Extract %d item(s) to:"
+msgstr "将 %d 个项目解压到："
+
+msgid "Password (leave empty if the archive is not encrypted):"
+msgstr "密码（未加密可留空）："
+
+msgid "Open destination folder when finished"
+msgstr "完成后打开目标文件夹"
+
+msgid "Choose a destination folder"
+msgstr "选择目标文件夹"
+
+msgid "New Archive"
+msgstr "新建压缩包"
+
+msgid "Archive path:"
+msgstr "压缩包路径："
+
+msgid "Format:"
+msgstr "格式："
+
+msgid "Compression level:"
+msgstr "压缩级别："
+
+msgid "Method:"
+msgstr "方法："
+
+msgid "Threads:"
+msgstr "线程："
+
+msgid "Password:"
+msgstr "密码："
+
+msgid "Solid block"
+msgstr "固实压缩块"
+
+msgid "Encrypt file names (7z)"
+msgstr "加密文件名（7z）"
+
+msgid "AES-256 (zip)"
+msgstr "AES-256（zip）"
+
+msgid "Split volume:"
+msgstr "分卷大小："
+
+msgid "Single file"
+msgstr "单文件"
+
+msgid "%d item(s) will be added."
+msgstr "将添加 %d 个项目。"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Theme:"
+msgstr "主题："
+
+msgid "Appearance:"
+msgstr "外观："
+
+msgid "System default"
+msgstr "跟随系统"
+
+msgid "Light"
+msgstr "浅色"
+
+msgid "Dark"
+msgstr "深色"
+
+msgid "Language:"
+msgstr "语言："
+
+msgid "Language changes take effect after TyZip is restarted."
+msgstr "语言修改将在重新启动 TyZip 后生效。"
+
+msgid "Show hidden files"
+msgstr "显示隐藏文件"
+
+msgid "Folders first"
+msgstr "文件夹优先"
+
+msgid "Confirm before deleting archive entries"
+msgstr "删除压缩包条目前确认"
+
+msgid "Open destination after extraction"
+msgstr "解压后打开目标文件夹"
+
+msgid "Default extraction folder:"
+msgstr "默认解压文件夹："
+
+msgid "Choose default extraction folder"
+msgstr "选择默认解压文件夹"
+
+msgid "Compressing %d entries…"
+msgstr "正在压缩 %d 个条目…"
+
+msgid "Extracting %d item(s)…"
+msgstr "正在解压 %d 个项目…"
+
+msgid "Testing %d item(s)…"
+msgstr "正在测试 %d 个项目…"
+
+msgid "Adding files…"
+msgstr "正在添加文件…"
+
+msgid "Adding folder…"
+msgstr "正在添加文件夹…"
+
+msgid "Deleting entries…"
+msgstr "正在删除条目…"
+
+msgid "Cancelling…"
+msgstr "正在取消…"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Resume"
+msgstr "继续"
+
+msgid "Paused"
+msgstr "已暂停"
+
+msgid "Opening"
+msgstr "正在打开"
+
+msgid "Compressing"
+msgstr "正在压缩"
+
+msgid "Testing"
+msgstr "正在测试"
+
+msgid "%s · %s"
+msgstr "%s · %s"
+
+msgid "%s / %s  (%d%%)"
+msgstr "%s / %s（%d%%）"
+
+msgid "%d / %d items  (%d%%)"
+msgstr "%d / %d 项（%d%%）"
+
+msgid "Elapsed %s"
+msgstr "已用时间 %s"
+
+msgid "Remaining %s"
+msgstr "剩余时间 %s"
+
+msgid "Remaining —"
+msgstr "剩余时间 —"
+
+msgid "Total %s"
+msgstr "总大小 %s"
+
+msgid "Speed %s/s"
+msgstr "速度 %s/s"
+
+msgid "Entries %d"
+msgstr "条目 %d"
+
+msgid "Speed %d items/s"
+msgstr "速度 %d 项/秒"
+
+msgid "Files %d / %d"
+msgstr "文件 %d / %d"
+
+msgid "Compressed %s"
+msgstr "压缩后 %s"
+
+msgid "Compressed %s (%d%%)"
+msgstr "压缩后 %s（%d%%）"
+
+msgid "Current %s"
+msgstr "当前 %s"
+
+msgid "Folder not found: %s"
+msgstr "找不到文件夹：%s"
+
+msgid "Cannot open archive:"
+msgstr "无法打开压缩包："
+
+msgid "Cannot extract nested archive:"
+msgstr "无法解压内嵌压缩包："
+
+msgid "Cannot open file:"
+msgstr "无法打开文件："
+
+msgid "No application is associated with:"
+msgstr "没有关联的应用程序："
+
+msgid "Select one or more files or folders first."
+msgstr "请先选择一个或多个文件或文件夹。"
+
+msgid "Nothing to compress."
+msgstr "没有可压缩的内容。"
+
+msgid "A file named %s already exists. Replace it?"
+msgstr "名为 %s 的文件已存在，是否替换？"
+
+msgid "Could not create the archive:"
+msgstr "无法创建压缩包："
+
+msgid "Extraction failed:"
+msgstr "解压失败："
+
+msgid "The archive is damaged or the password is wrong:"
+msgstr "压缩包已损坏或密码错误："
+
+msgid "Could not update the archive:"
+msgstr "无法更新压缩包："
+
+msgid "Could not reopen the archive:"
+msgstr "无法重新打开压缩包："
+
+msgid "This is a nested archive inside another archive. Open the outer archive to modify it."
+msgstr "这是另一个压缩包内部的内嵌压缩包。请打开外层压缩包进行修改。"
+
+msgid "This archive format cannot be updated."
+msgstr "此压缩格式不支持更新。"
+
+msgid "Select one or more entries to delete."
+msgstr "请选择要删除的一个或多个条目。"
+
+msgid "Open a Finder folder first. Creating an archive from entries inside another archive is not supported yet."
+msgstr "请先在 Finder 中打开文件夹。暂不支持从另一个压缩包内部创建新压缩包。"
+
+msgid "Updating a split volume is not supported yet. Extract it and create a new archive."
+msgstr "暂不支持更新分卷压缩包。请先解压，再创建新的压缩包。"
+
+msgid "Test complete. %d item(s) verified."
+msgstr "测试完成，已验证 %d 个项目。"
+
+msgid "Delete %d selected entr(ies) from the archive?"
+msgstr "要从压缩包中删除选中的 %d 个条目吗？"
+
+msgid "TyZip"
+msgstr "TyZip"
+
+msgid "Open Archive"
+msgstr "打开压缩包"
+
+msgid "Add Files to Archive"
+msgstr "添加文件到压缩包"
+
+msgid "Add Folder to Archive"
+msgstr "添加文件夹到压缩包"
+
+msgid "All files (*.*)|*.*"
+msgstr "所有文件 (*.*)|*.*"
+
+msgid "Name:"
+msgstr "名称："
+
+msgid "Source:"
+msgstr "来源："
+
+msgid "Entries:"
+msgstr "条目："
+
+msgid "Unpacked size:"
+msgstr "解压后大小："
+
+msgid "Packed size:"
+msgstr "压缩后大小："
+
+msgid "Ratio:"
+msgstr "压缩比："
+
+msgid "Encrypted:"
+msgstr "加密："
+
+msgid "Can update:"
+msgstr "可更新："
+
+msgid "Nested:"
+msgstr "内嵌："
+
+msgid "Opened from:"
+msgstr "打开位置："
+
+msgid "Archive chain:"
+msgstr "压缩包链："
+
+msgid "yes"
+msgstr "是"
+
+msgid "no"
+msgstr "否"
+
+msgid "TyZip 1.0\n\nA TyControls archive manager for macOS.\nArchive engine: official 7-Zip 26.03 dynamic library\nBuilt with Lazarus / Free Pascal."
+msgstr "TyZip 1.0\n\n一个面向 macOS 的 TyControls 压缩包管理器。\n压缩引擎：官方 7-Zip 26.03 动态库\n使用 Lazarus / Free Pascal 构建。"
+
+msgid "The TyZip engine library (libtz7z.dylib) could not be loaded.\nBuild the backend first, or set TYZIP_LIB to its full path."
+msgstr "无法加载 TyZip 引擎库（libtz7z.dylib）。\n请先构建后端，或设置 TYZIP_LIB 指向其完整路径。"
+
+msgid "Opening archive — please wait…"
+msgstr "正在打开压缩包，请稍候…"
+
+msgid "Reading archive contents"
+msgstr "正在读取压缩包内容"
+
+msgid "Extracting"
+msgstr "正在解压"
+
+msgid "Testing archive"
+msgstr "正在测试压缩包"
+
+msgid "Creating archive"
+msgstr "正在创建压缩包"
+
+msgid "Updating archive"
+msgstr "正在更新压缩包"
+
+msgid "Unpacking"
+msgstr "正在解包"
+
+msgid "Archive updated."
+msgstr "压缩包已更新。"
+
+msgid "Still working — please wait…"
+msgstr "还在处理中，请稍候…"
+
+msgid "Wrap"
+msgstr "自动换行"
+
+msgid "Wrap long lines"
+msgstr "长行自动换行"
+
+msgid "Syntax highlighting language"
+msgstr "语法高亮语言"
+
+msgid "None"
+msgstr "无高亮"
+
+msgid "Text encoding"
+msgstr "文本编码"
+
+msgid "Open With…"
+msgstr "打开方式…"
+
+msgid "Open With"
+msgstr "打开方式"
+
+msgid "Other…"
+msgstr "其他…"
+
+msgid "General"
+msgstr "常规"
+
+msgid "Encryption"
+msgstr "加密"
+
+msgid "Advanced"
+msgstr "高级"
+
+msgid "Options"
+msgstr "参数"
+
+msgid "Delete source files after archiving"
+msgstr "压缩后删除源文件"
+
+msgid "Confirm password:"
+msgstr "确认密码："
+
+msgid "AES-256 encryption (zip)"
+msgstr "AES-256 加密（仅 zip）"
+
+msgid "Name encoding:"
+msgstr "文件名编码："
+
+msgid "Auto (UTF-8)"
+msgstr "自动（UTF-8）"
+
+msgid "UTF-8"
+msgstr "UTF-8"
+
+msgid "GBK (Chinese Windows)"
+msgstr "GBK（中文 Windows）"
+
+msgid "GB18030"
+msgstr "GB18030"
+
+msgid "Shift-JIS (Japanese)"
+msgstr "Shift-JIS（日文）"
+
+msgid "Affects non-ASCII entry names. Tools on other systems must use the same one."
+msgstr "影响非 ASCII 文件名，其他系统上的解压工具需使用相同编码。"
+
+msgid "Dictionary:"
+msgstr "字典大小："
+
+msgid "Match finder:"
+msgstr "匹配查找器："
+
+msgid "Word size:"
+msgstr "单词大小："
+
+msgid "Passes:"
+msgstr "迭代次数："
+
+msgid "(0 = all cores)"
+msgstr "（0 = 全部核心）"
+
+msgid "Estimated memory: %s of %s installed"
+msgstr "预计内存：%s / 共 %s"
+
+msgid "Warning: needs %s but only %s is installed"
+msgstr "警告：需要 %s，但本机只有 %s"
+
+msgid "Extra parameters:"
+msgstr "附加参数："
+
+msgid "name=value pairs separated by colons, e.g. mt=8:tc=off"
+msgstr "名=值 形式，用冒号分隔，例如 mt=8:tc=off"
+
+msgid "Create"
+msgstr "创建"
+
+msgid "Save archive as"
+msgstr "压缩包保存为"
+
+msgid "Store"
+msgstr "仅存储"
+
+msgid "Fastest"
+msgstr "最快"
+
+msgid "Fast"
+msgstr "快速"
+
+msgid "Normal"
+msgstr "标准"
+
+msgid "Maximum"
+msgstr "较好"
+
+msgid "Ultra"
+msgstr "最好"
+
+msgid "Default"
+msgstr "默认"
+
+msgid "%d  (%d files, %d folders)"
+msgstr "%d  （%d 个文件，%d 个文件夹）"
+
+msgid "Latin-1 (Western)"
+msgstr "Latin-1（西欧）"
+
+msgid "Encryption is available for 7z and zip only."
+msgstr "仅 7z 和 zip 格式支持加密。"
+
+msgid "Estimated RAM needed: %s (this machine has %s)"
+msgstr "预计需要内存：%s（本机共 %s）"
+
+msgid "Estimated RAM needed: %s"
+msgstr "预计需要内存：%s"
+
+msgid "Warning: this needs %s of RAM, but only %s is installed"
+msgstr "警告：需要 %s 内存，但本机只有 %s"
+
+msgid ""
+"Leave this empty unless you know exactly what to put here.\n"
+"Advanced 7-Zip switches only; the fields above already cover the common ones."
+msgstr ""
+"不熟悉请留空。\n"
+"此处仅接受 7-Zip 高级开关，上面的选项已涵盖常用设置。"
+
+msgid "Archive created; %d source item(s) could not be deleted"
+msgstr "压缩包已创建；有 %d 个源文件无法删除"
+
+msgid "Choose an Application"
+msgstr "选择应用程序"
+
+msgid "Applications (*.app)|*.app|All files|*"
+msgstr "应用程序 (*.app)|*.app|所有文件|*"
+
+msgid "This archive is split across several volumes and cannot be modified in place. Extract it first, then create a new archive."
+msgstr "此压缩包分卷存放，无法就地修改。请先解压，再重新创建压缩包。"
+
+msgid "Where:"
+msgstr "位置："
+
+msgid "Extract into a folder named after the archive"
+msgstr "解压到以压缩包命名的新文件夹"
+
+msgid "If a file exists:"
+msgstr "若文件已存在："
+
+msgid "Overwrite"
+msgstr "覆盖"
+
+msgid "Skip"
+msgstr "跳过"
+
+msgid "Keep both"
+msgstr "两者都保留"
+
+msgid "Delete the archive after extracting"
+msgstr "解压后删除压缩包"
+
+msgid "Extract Selected…"
+msgstr "解压所选…"
+
+msgid "Preset:"
+msgstr "预设："
+
+msgid "(none)"
+msgstr "（无）"
+
+msgid "Save as preset…"
+msgstr "存为预设…"
+
+msgid "Name for this preset:"
+msgstr "预设名称："
+
+msgid "Preset \"%s\" saved."
+msgstr "预设\"%s\"已保存。"
+
+msgid "There is no room for another preset. Delete one first."
+msgstr "预设数量已满，请先删除一个。"
+
+msgid "Find in Archive"
+msgstr "在压缩包中查找"
+
+msgid "Find in Archive…"
+msgstr "在压缩包中查找…"
+
+msgid "Clear Search"
+msgstr "清除查找"
+
+msgid "Find:"
+msgstr "查找："
+
+msgid "Search in:"
+msgstr "范围："
+
+msgid "Names"
+msgstr "名称"
+
+msgid "Contents"
+msgstr "内容"
+
+msgid "Names and contents"
+msgstr "名称和内容"
+
+msgid "Match:"
+msgstr "匹配："
+
+msgid "Contains"
+msgstr "包含"
+
+msgid "Wildcard (* and ?)"
+msgstr "通配符（* 和 ?）"
+
+msgid "Regular expression"
+msgstr "正则表达式"
+
+msgid "Match case"
+msgstr "区分大小写"
+
+msgid "No matches found."
+msgstr "未找到匹配项。"
+
+msgid "Found %d matches."
+msgstr "找到 %d 项。"
+
+msgid "\"%s\" was changed. Write the new version back into the archive?"
+msgstr "\"%s\" 已被修改。是否将新版本写回压缩包？"
+
+msgid "Updated %s in the archive."
+msgstr "已更新压缩包中的 %s。"
+
+msgid "Rename…"
+msgstr "重命名…"
+
+msgid "Rename Entry"
+msgstr "重命名条目"
+
+msgid "New name:"
+msgstr "新名称："
+
+msgid "The name cannot be empty."
+msgstr "名称不能为空。"
+
+msgid "A name cannot contain any of : * ? \" < > |"
+msgstr "名称不能包含 : * ? \" < > |"
+
+msgid "A name cannot be \".\" or \"..\"."
+msgstr "名称不能是 \".\" 或 \"..\"。"
+
+msgid "A name cannot start with \"/\"."
+msgstr "名称不能以 \"/\" 开头。"
+
+msgid "A file name cannot end with \"/\"."
+msgstr "文件名不能以 \"/\" 结尾。"
+
+msgid "An entry with that name already exists here."
+msgstr "此处已有同名条目。"
+
+msgid "Folders cannot be renamed in place yet."
+msgstr "暂不支持就地重命名文件夹。"
+
+msgid "Renamed to %s."
+msgstr "已重命名为 %s。"
+
+msgid "Archive Comment"
+msgstr "压缩包注释"
+
+msgid "Archive Comment…"
+msgstr "压缩包注释…"
+
+msgid "Comment stored in the archive:"
+msgstr "压缩包中的注释："
+
+msgid "This archive cannot store a comment."
+msgstr "此压缩包无法保存注释。"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Saving an archive comment is not implemented yet; this shows the stored one."
+msgstr "保存注释功能尚未实现；此处显示的是已保存的注释。"
+
+msgid "No archives were selected."
+msgstr "未选中任何压缩包。"
+
+msgid "%d item(s) skipped: not an archive."
+msgstr "已跳过 %d 项：不是压缩包。"
+
+msgid "Convert to Another Format…"
+msgstr "转换为其他格式…"
+
+msgid "Convert Archive"
+msgstr "转换压缩包"
+
+msgid "Save the converted archive as:"
+msgstr "将转换后的压缩包保存为："
+
+msgid "There is no other format this archive can be converted to."
+msgstr "此压缩包没有可转换的其他格式。"
+
+msgid "The conversion failed:"
+msgstr "转换失败："
+
+msgid "Converted to %s."
+msgstr "已转换为 %s。"
+
+msgid "Converting…"
+msgstr "正在转换…"
+
+msgid "Archive comment saved."
+msgstr "压缩包注释已保存。"
+
+msgid "Extract All to…"
+msgstr "全部解压到…"
+
+msgid "Extract All Here"
+msgstr "全部解压到此处"
+
+msgid "Extract Each to Its Own Folder"
+msgstr "各自解压到独立文件夹"
+
+msgid "Test All Archives"
+msgstr "测试全部压缩包"
+
+msgid "Add %d Items to Archive…"
+msgstr "将 %d 项添加到压缩包…"
+
+msgid "Extract All Selected…"
+msgstr "全部解压所选…"
+
+msgid "All %d archives were processed successfully."
+msgstr "全部 %d 个压缩包处理成功。"
+
+msgid "%d archives processed: %d succeeded, %d failed."
+msgstr "已处理 %d 个压缩包：%d 成功，%d 失败。"
+
+msgid "…and %d more."
+msgstr "…另有 %d 项。"
+
+msgid "Batch finished: %d archives."
+msgstr "批量完成：%d 个压缩包。"
+
+msgid "Add to Archive…"
+msgstr "添加到压缩包…"
+
+msgid "Add to %s"
+msgstr "添加到 %s"
+
+msgid "Add Each to a Separate Archive"
+msgstr "分别添加到独立压缩包"
+
+msgid "Convert"
+msgstr "转换"
+
+msgid "The converted archive needs a different name from the original."
+msgstr "转换后的压缩包不能与原文件同名。"
+
+msgid "Icon cache"
+msgstr "图标缓存"
+
+msgid "not in use"
+msgstr "未使用"
+
+msgid "%s in %d files"
+msgstr "%s，共 %d 个文件"
+
+msgid "Removed %d cached icons."
+msgstr "已删除 %d 个缓存图标。"
+
+msgid "Clear Icon Cache"
+msgstr "清理图标缓存"
+
+msgid "Invalid argument."
+msgstr "参数无效。"
+
+msgid "Out of memory."
+msgstr "内存不足。"
+
+msgid "Cannot open the archive."
+msgstr "无法打开压缩包。"
+
+msgid "This file is not a supported archive."
+msgstr "该文件不是受支持的压缩包。"
+
+msgid "The password is wrong or missing."
+msgstr "密码错误或缺失。"
+
+msgid "Unsupported archive format."
+msgstr "不支持的压缩包格式。"
+
+msgid "Updating the archive failed."
+msgstr "更新压缩包失败。"
+
+msgid "Extracting the archive failed."
+msgstr "解压失败。"
+
+msgid "Operation cancelled."
+msgstr "操作已取消。"
+
+msgid "File I/O error."
+msgstr "文件读写错误。"
+
+msgid "Operation not supported."
+msgstr "不支持该操作。"
+
+msgid "Unknown error (%d)."
+msgstr "未知错误（%d）。"
+
+
+msgid "Compressing %d item(s)…"
+msgstr "正在压缩 %d 个项目…"
+
+msgid "Compressing…"
+msgstr "正在压缩…"
+
+msgid "Extracting %d archive(s)…"
+msgstr "正在解压 %d 个压缩包…"
+
+msgid "Extracting…"
+msgstr "正在解压…"
+
+
+msgid "Searching archive"
+msgstr "正在搜索压缩包"

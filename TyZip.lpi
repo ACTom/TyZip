@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="12"/>
+    <General>
+      <Flags>
+        <MainUnitHasTitleStatement Value="False"/>
+      </Flags>
+      <Title Value="TyZip"/>
+      <Scaled Value="True"/>
+    </General>
+    <BuildModes Active="Default">
+      <!-- Default is the debug/test build: lib/<cpu>-<os>/TyZip, assembled into
+           bin/ for local testing. Release writes its executable and units to
+           dist/<cpu>-<os>/; scripts/release.sh assembles dist/TyZip.app and the
+           distributable zips from it. A build mode only carries the values that
+           differ from compiler defaults (it does not inherit the project
+           CompilerOptions below), so -WM11.0 has to be repeated here.
+           OptimizationLevel 3 = -O3, GenerateDebugInfo False = no -g. No
+           StripSymbols here: FPC's -Xs does not strip on Darwin, so
+           package_app.sh STRIP=1 strips the bundled executable instead. -->
+      <Item Name="Default" Default="True"/>
+      <Item Name="Release">
+        <CompilerOptions>
+          <Version Value="11"/>
+          <SearchPaths>
+            <OtherUnitFiles Value="src;backend"/>
+            <UnitOutputDirectory Value="dist/$(TargetCPU)-$(TargetOS)"/>
+          </SearchPaths>
+          <CodeGeneration>
+            <Optimizations>
+              <OptimizationLevel Value="3"/>
+            </Optimizations>
+          </CodeGeneration>
+          <Linking>
+            <Debugging>
+              <GenerateDebugInfo Value="False"/>
+              <DebugInfoType Value="dsAuto"/>
+            </Debugging>
+            <Options>
+              <Win32>
+                <GraphicApplication Value="True"/>
+              </Win32>
+            </Options>
+          </Linking>
+          <Other>
+            <CustomOptions Value="-WM11.0"/>
+          </Other>
+        </CompilerOptions>
+      </Item>
+    </BuildModes>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+    <RunParams>
+      <FormatVersion Value="2"/>
+    </RunParams>
+    <RequiredPackages>
+      <Item>
+        <PackageName Value="LCL"/>
+      </Item>
+      <Item>
+        <PackageName Value="tycontrols"/>
+      </Item>
+      <Item>
+        <PackageName Value="SynEdit"/>
+      </Item>
+    </RequiredPackages>
+    <Units>
+      <Unit>
+        <Filename Value="src/TyZip.lpr"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.main.pas"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="1"/>
+        <TopLine Value="2102"/>
+        <CursorPos Y="2118"/>
+        <UsageCount Value="23"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.api.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.engine.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.jobs.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.dialogs.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="23"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.preview.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.preview.syntax.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.i18n.pas"/>
+        <TopLine Value="253"/>
+        <CursorPos X="5" Y="277"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.appcache.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.arcpath.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.commands.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.createopts.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.editwrite.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.extract.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.formats.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.i18n.lcl.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.iconkeys.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.iconstore.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.imageinfo.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.jobcontrol.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.jobqueue.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.navpaths.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.navstate.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.passwords.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.passwordstore.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.platform.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.platform_macos.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.presets.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.preview.session.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.preview.workers.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.rename.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.search.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.services_macos.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.settings.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.ui.arclist.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.ui.dialogkit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.ui.fslist.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.ui.icons.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.ui.menu.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/tzip.ui.sidebartree.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="1"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="11">
+      <Position>
+        <Filename Value="src/tzip.i18n.pas"/>
+        <Caret Line="277" Column="5" TopLine="253"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="2118" TopLine="2094"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="907" TopLine="891"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="908" TopLine="891"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="909" TopLine="891"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="911" TopLine="891"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="910" TopLine="891"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="911" TopLine="891"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="910" TopLine="891"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="2118" TopLine="2103"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="911" Column="9" TopLine="896"/>
+      </Position>
+      <Position>
+        <Filename Value="src/tzip.main.pas"/>
+        <Caret Line="2118" Column="55" TopLine="2102"/>
+      </Position>
+    </JumpHistory>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <SearchPaths>
+      <OtherUnitFiles Value="src;backend"/>
+      <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
+    </SearchPaths>
+    <Other>
+      <!-- Keep the app runnable on macOS 11: FPC otherwise stamps the host SDK
+           version into LC_BUILD_VERSION. The bridge and 7z.so are built with
+           the same deployment target (scripts/build_7zip.sh, build_backend.sh). -->
+      <CustomOptions Value="-WM11.0"/>
+    </Other>
+    <Linking>
+      <Debugging>
+        <DebugInfoType Value="dsDwarf2"/>
+      </Debugging>
+      <Options>
+        <Win32>
+          <GraphicApplication Value="True"/>
+        </Win32>
+      </Options>
+    </Linking>
+  </CompilerOptions>
+</CONFIG>
