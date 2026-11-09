@@ -28,6 +28,8 @@ scripts/release.sh   # Release 构建 → dist/TyZip-<ver>-<arch>.zip；缺 arm6
 
 工具链只用 fpcupdeluxe（FPC 3.2.3 / Lazarus 4.8）；系统 FPC 和 brew 不参与构建。构建模式、发布配置、arm64 交叉、语言包与排错见 `docs/BUILDING.md`。
 
+发布 GitHub Release 走 API：打 `v<version>` tag，建 release 正文取 `CHANGELOG.md` 对应版本段，再上传 `dist/TyZip-<ver>-<arch>.zip`。PAT 放在本机 `~/.config/tz/gh-token`（权限 600，只在本机、不进仓库，用户明确要求长期复用）。
+
 ## 按分支查文档
 
 - 构建 / 测试 / 发布 / arm64 → `docs/BUILDING.md`
