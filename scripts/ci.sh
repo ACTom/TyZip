@@ -46,6 +46,23 @@ plutil -lint "$ROOT/packaging/Info.plist" >/dev/null || fail "Info.plist does no
 plist_min="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$ROOT/packaging/Info.plist")"
 [[ "$plist_min" = "$MINOS" ]] || fail "plist LSMinimumSystemVersion is $plist_min, expected $MINOS"
 
+# The Finder Services menu is a published contract (Info.plist entry, selector in
+# tzip.services_macos and a line in ServicesMenu.zh-Hans.strings). Keep the count
+# and the message names honest: a missing entry makes the menu item vanish.
+services_json="$(mktemp "${TMPDIR:-/tmp}/tyzip-services.XXXXXX")"
+plutil -convert json -o "$services_json" "$ROOT/packaging/Info.plist"
+python3 - "$services_json" <<'PY' || { rm -f "$services_json"; fail "Info.plist Finder services are wrong"; }
+import json, sys
+d = json.load(open(sys.argv[1]))
+names = [s.get('NSMessage') for s in d.get('NSServices', [])]
+want = ['compressDialog', 'extractDialog', 'extractHere', 'extractToFolder',
+        'smartExtract', 'compressHere', 'compressEach']
+if names != want:
+    print('NSServices:', names, file=sys.stderr)
+    sys.exit(1)
+PY
+rm -f "$services_json"
+
 echo "== shell syntax"
 for f in "$ROOT"/scripts/*.sh "$ROOT"/tests/*.sh; do
   bash -n "$f" || fail "syntax error in $f"

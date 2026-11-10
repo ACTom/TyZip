@@ -216,6 +216,13 @@ function AskPassword(AOwner: TForm; const APrompt: string; var APassword: string
 function ShowExtractDialog(AOwner: TForm;
   ACount: Integer; const ADefaultDest: string; ANeedsPassword, APartial: Boolean;
   out AOptions: TExtractOptions): Boolean;
+
+{ The Finder smart service has no conflict policy of its own: when files from
+  the archive already exist in the destination, ask once for that archive.
+  ecAsk means the user cancelled the whole batch. }
+function ShowSmartConflictDialog(AOwner: TForm;
+  const AArchiveName, ADest: string): TExtractConflict;
+
 { The create dialog. ASeed may carry settings the caller wants pre-filled --
   conversion uses it to keep the source archive's password and level, which the
   user would otherwise have to retype for every conversion. }
@@ -690,6 +697,56 @@ begin
     Result := D.ShowModal = mrOk;
     if Result then AOptions := D.Options;
   finally D.Free; end;
+end;
+
+{ One archive of the Finder smart service has files that already exist in its
+  destination. The answer applies to that whole archive. }
+type
+  TSmartConflictForm = class(TZipDialog)
+  public
+    constructor Create(AOwner: TComponent;
+      const AArchiveName, ADest: string); reintroduce;
+  end;
+
+constructor TSmartConflictForm.Create(AOwner: TComponent;
+  const AArchiveName, ADest: string);
+var
+  Body: TTyPanel;
+  Pad, CW: Integer;
+begin
+  inherited CreateNew(AOwner);
+  AutoScroll := False;
+  Caption := rsDlgSmartConflictTitle;
+  Position := poMainFormCenter;
+  Pad := Px(cPad);
+  CW := Px(420);
+  Body := NewBody(Self);
+  NewLabel(Body, Format(rsDlgSmartConflictFmt, [AArchiveName, ADest]), Pad, Pad,
+    CW, Px(cLabelH) * 2);
+  AddButton(rsDlgConflictOverwrite, mrYes, True, False);
+  AddButton(rsDlgConflictRename, mrNo, False, False);
+  AddButton(rsDlgConflictSkip, mrIgnore, False, False);
+  AddButton(rsDlgCancel, mrCancel, False, True);
+  AutoSizeToContent(CW, Pad + Px(cLabelH) * 2 + Px(16));
+end;
+
+function ShowSmartConflictDialog(AOwner: TForm;
+  const AArchiveName, ADest: string): TExtractConflict;
+var
+  D: TSmartConflictForm;
+begin
+  { ecAsk is the "stop the whole batch" answer. }
+  Result := ecAsk;
+  D := TSmartConflictForm.Create(AOwner, AArchiveName, ADest);
+  try
+    case D.ShowModal of
+      mrYes: Result := ecOverwrite;
+      mrNo: Result := ecRename;
+      mrIgnore: Result := ecSkip;
+    end;
+  finally
+    D.Free;
+  end;
 end;
 
 { ---------------------------------------------------------------------------

@@ -242,6 +242,33 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
+				<string>TyZip: Smart Extract</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>smartExtract</string>
+			<key>NSPortName</key>
+			<string>TyZip</string>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+			<!-- Same pasteboard caveat as "Extract Here": the legacy filenames
+			     list carries the POSIX paths, public.file-url may be a reference
+			     URL (ticket 36). -->
+			<key>NSSendTypes</key>
+			<array>
+				<string>NSFilenamesPboardType</string>
+			</array>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSApplicationIdentifier</key>
+				<string>com.apple.finder</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
 				<string>TyZip: Add to &lt;name&gt;.7z</string>
 			</dict>
 			<key>NSMessage</key>

@@ -778,6 +778,9 @@ msgstr "智能解压"
 msgid "Smart extract needs the whole archive"
 msgstr "解压部分内容不支持智能解压"
 
+msgid "Some files from \"%s\" already exist in %s. What should happen to them?"
+msgstr "「%s」里有些文件在 %s 中已经存在，要怎么处理？"
+
 msgid "If a file exists:"
 msgstr "若文件已存在："
 

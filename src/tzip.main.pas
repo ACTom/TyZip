@@ -724,6 +724,8 @@ type
     procedure RestartTimer(ATimer: TTimer);
     procedure DoCreateEachArchive(APaths: TStrings);
     procedure StartExtractFrom(AArchives: TStrings);
+    { Finder's "Smart Extract": one click, no dialog, layout by archive structure. }
+    procedure StartSmartExtract(AArchives: TStrings);
     {$IFDEF DARWIN}
     { Finder Services: build an archive from what was selected, or extract. }
     function HandleService(ARequest: TServiceRequest;
@@ -5731,12 +5733,15 @@ end;
 function TMainForm.HandleJobBatchList(AJob: TZJob; APurpose: TZJobPurpose;
   AResult: Integer; const AError: string): TJobHandlerOutcome;
 var
-  Idx, I, N: Integer;
+  Idx, I, N, Collisions: Integer;
   Entries: TExtractEntryArray;
   Indices: TLongWordArray;
+  Keep: TExtractEntryKeep;
   Listing: TListing;
+  Plan: TSmartPlan;
+  Choice: TExtractConflict;
   J: TZJob;
-  P: string;
+  P, Base: string;
 begin
   Result := joContinue;
   if (FBatchRun = nil) or (AJob = nil) then Exit;
@@ -5775,8 +5780,39 @@ begin
   end;
   SetLength(Entries, N);
   SetLength(Indices, N);
+  { The Finder smart service carries no conflict policy: ask once for this
+    archive before anything is written. The dialog flow already answered it. }
+  Choice := FBatchRun.Conflict;
+  if (FBatchRun.Mode = bmSmart) and (Choice = ecAsk) then
+  begin
+    Base := FBatchDest;
+    if Base = '' then Base := ExtractFileDir(FBatchRun[Idx].Path);
+    Plan := TzSmartPlan(FBatchRun[Idx].Path, Base, Entries);
+    Collisions := 0;
+    if Plan.Layout <> slNothing then
+      Collisions := ResolveExtractConflicts(Plan.Dest,
+        TzSmartTargetEntries(Plan, Entries), ecSkip, Keep);
+    if Collisions > 0 then
+    begin
+      Choice := ShowSmartConflictDialog(Self,
+        ExtractFileName(FBatchRun[Idx].Path), Plan.Dest);
+      if Choice = ecAsk then
+      begin
+        { Cancel means: stop the batch. The archive in flight was never started. }
+        FBatchRun.NoteCancelled(Idx);
+        if FBatchTally <> nil then
+          FBatchTally.NoteResult(ExtractFileName(FBatchRun[Idx].Path),
+            TZ7Z_E_CANCEL, '');
+        FBatchNextPending := True;
+        Exit;
+      end;
+    end
+    else
+      { Nothing collides, so the policy does not matter. }
+      Choice := ecSkip;
+  end;
   { Ticket 04's entry-level rules, applied against this archive's landing place. }
-  if not FBatchRun.Resolve(Idx, Entries, Indices, FBatchRun.Conflict) then
+  if not FBatchRun.Resolve(Idx, Entries, Indices, Choice) then
   begin
     { Everything collided and the policy skipped it: nothing to write. }
     FBatchNextPending := True;
@@ -6974,6 +7010,38 @@ begin
   ContinueBatch;
 end;
 
+{ Finder's one-click smart extraction: no dialog, no destination, no delete and
+  no open after -- each archive lands next to itself, laid out by its structure.
+  The only question asked is what to do about files that already exist. }
+procedure TMainForm.StartSmartExtract(AArchives: TStrings);
+var
+  Run: TBatchRun;
+begin
+  if (AArchives = nil) or (AArchives.Count = 0) then Exit;
+  if FBatchRun <> nil then
+  begin
+    { One batch at a time, same rule as the dialog path. }
+    FStatus.SimpleText := rsBusyStillWorking;
+    Exit;
+  end;
+  FBatchDest := '';
+  FBatchOpenAfter := False;
+  FBatchDeleteAfter := False;
+  FreeAndNil(FBatchTally);
+  FBatchTally := TJobController.Create;
+  FBatchTally.BeginBatch;
+  Run := TBatchRun.Create(AArchives, '', ecAsk, bmSmart);
+  FBatchRun := Run;
+  if Run.Count = Run.SkippedNonArchiveCount then
+  begin
+    FreeAndNil(FBatchRun);
+    FreeAndNil(FBatchTally);
+    ShowError(rsErrNoArchivesSelected);
+    Exit;
+  end;
+  ContinueBatch;
+end;
+
 { True when the target may be written: nothing there, or the user agreed to
   replace it. Shared by the dialog flow and the one-click "Add to <name>.7z". }
 function TMainForm.ConfirmReplaceTarget(const APath: string): Boolean;
@@ -7559,7 +7627,7 @@ begin
           Result := Format(rsSvcCompressingFmt, [Paths.Count]);
         end;
 
-      srExtractDialog, srExtractHere, srExtractToFolder:
+      srExtractDialog, srExtractHere, srExtractToFolder, srSmartExtract:
         begin
           if Archives.Count = 0 then
           begin
@@ -7578,6 +7646,13 @@ begin
             srExtractHere:
               begin
                 BatchExtract(Archives, '');
+                Result := rsSvcExtracting;
+              end;
+            srSmartExtract:
+              begin
+                { No dialog, no destination choice: the archive's own structure
+                  decides the layout, and only a file collision asks anything. }
+                StartSmartExtract(Archives);
                 Result := rsSvcExtracting;
               end;
           else

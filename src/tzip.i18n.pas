@@ -207,6 +207,9 @@ resourcestring
   rsDlgSmartFolder = 'Extract into a folder named after the archive';
   rsDlgSmartExtract = 'Smart extract';
   rsDlgSmartExtractPartialHint = 'Smart extract needs the whole archive';
+  rsDlgSmartConflictTitle = 'Smart extract';
+  rsDlgSmartConflictFmt =
+    'Some files from "%s" already exist in %s. What should happen to them?';
   rsDlgOnConflict = 'If a file exists:';
   rsDlgConflictOverwrite = 'Overwrite';
   rsDlgConflictSkip = 'Skip';
