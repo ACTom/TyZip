@@ -11,7 +11,8 @@ unit tzip.extract;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils
+  {$IFDEF UNIX}, BaseUnix{$ENDIF};
 
 type
   { What to do when the destination already has a file of that name. }
@@ -101,6 +102,10 @@ type
   absolute name, no drive prefix, and no '..' segment that would climb out. }
 function ExtractEntryNameIsSafe(const AEntryName: string): Boolean;
 
+{ True when APath is a symbolic link. FindFirst reports a link to a directory as
+  a directory, so a walker must ask this before descending. }
+function TzPathIsSymlink(const APath: string): Boolean;
+
 { Where AEntryName lands under ADestDir, or '' when the name is unsafe or empty.
   A trail of separators or a '\' is tolerated; the result uses PathDelim. }
 function ExtractEntryPath(const ADestDir, AEntryName: string): string;
@@ -162,13 +167,24 @@ function TzSmartTargetEntries(const APlan: TSmartPlan;
 function TzSmartTargetPath(const APlan: TSmartPlan;
   const AEntryName: string): string;
 
+{ Index-aligned with AEntries: the entries whose target is empty (macOS junk, a
+  directory, or the stripped root itself) are marked not to be written. }
+procedure TzSmartDropEmptyTargets(const ATargets: TExtractEntryArray;
+  var AKeep: TExtractEntryKeep);
+
+{ Asked once per staged file while committing; True cancels the rest of the
+  move. }
+type
+  TExtractCancelCheck = function: Boolean of object;
+
 { Move the files staged under AStaging into ADest, stripping ARoot from their
   staged paths ("AStaging/photos/a.jpg" -> "ADest/a.jpg"). AReplace is the caller
   resolved "overwrite" policy: when a target already exists it is replaced only
-  if AReplace, otherwise the commit fails and leaves it alone. Directories are
-  created as needed; the caller deletes AStaging afterwards. }
+  if AReplace, otherwise the commit fails and leaves it alone. ACancelled, when
+  given, is asked before every move; a cancelled commit stops and reports False.
+  Directories are created as needed; the caller deletes AStaging afterwards. }
 function TzCommitStagedTree(const AStaging, ADest, ARoot: string;
-  AReplace: Boolean): Boolean;
+  AReplace: Boolean; ACancelled: TExtractCancelCheck = nil): Boolean;
 
 { The layout toggles the extract dialog shows, resolved to what extraction may
   do: smart extraction needs the whole archive (APartial = False), and the two
@@ -306,6 +322,20 @@ begin
       Start := I + 1;
     end;
   Result := True;
+end;
+
+function TzPathIsSymlink(const APath: string): Boolean;
+{$IFDEF UNIX}
+var
+  St: BaseUnix.Stat;
+{$ENDIF}
+begin
+{$IFDEF UNIX}
+  { lstat, not stat: the link itself is what must be recognised. }
+  Result := (fpLStat(PChar(APath), St) = 0) and fpS_ISLNK(St.st_mode);
+{$ELSE}
+  Result := False;
+{$ENDIF}
 end;
 
 function ExtractEntryPath(const ADestDir, AEntryName: string): string;
@@ -538,8 +568,23 @@ begin
   for I := 0 to High(AEntries) do
   begin
     Result[I] := AEntries[I];
-    Result[I].Name := TzSmartTargetPath(APlan, AEntries[I].Name);
+    { A directory is never a file target, whatever its name looks like: real
+      listings report directories through IsDir and keep no trailing slash. }
+    if AEntries[I].IsDir then
+      Result[I].Name := ''
+    else
+      Result[I].Name := TzSmartTargetPath(APlan, AEntries[I].Name);
   end;
+end;
+
+procedure TzSmartDropEmptyTargets(const ATargets: TExtractEntryArray;
+  var AKeep: TExtractEntryKeep);
+var
+  I: Integer;
+begin
+  for I := 0 to High(AKeep) do
+    if (I > High(ATargets)) or (ATargets[I].Name = '') then
+      AKeep[I] := False;
 end;
 
 { Every file under ADir, as paths relative to it with '/' separators. Collected
@@ -555,7 +600,10 @@ begin
     repeat
       if (SR.Name = '.') or (SR.Name = '..') then Continue;
       if ARel = '' then Rel := SR.Name else Rel := ARel + '/' + SR.Name;
-      if (SR.Attr and faDirectory) <> 0 then
+      { A symlink to a directory must be moved, not walked into: recursing would
+        list the target's files a second time and the move would fail. }
+      if ((SR.Attr and faDirectory) <> 0) and
+         (not TzPathIsSymlink(IncludeTrailingPathDelimiter(ADir) + SR.Name)) then
         CollectStagedFiles(IncludeTrailingPathDelimiter(ADir) + SR.Name, Rel,
           AList)
       else
@@ -567,7 +615,7 @@ begin
 end;
 
 function TzCommitStagedTree(const AStaging, ADest, ARoot: string;
-  AReplace: Boolean): Boolean;
+  AReplace: Boolean; ACancelled: TExtractCancelCheck): Boolean;
 var
   Files: TStringList;
   I: Integer;
@@ -580,6 +628,7 @@ begin
     CollectStagedFiles(ExcludeTrailingPathDelimiter(AStaging), '', Files);
     for I := 0 to Files.Count - 1 do
     begin
+      if Assigned(ACancelled) and ACancelled() then Exit;
       Orig := Files[I];
       Rel := Orig;
       if ARoot <> '' then

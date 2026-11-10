@@ -7251,7 +7251,7 @@ begin
   begin
     Indices := SelectedArchiveIndices(False);
     { A selection, not just the visible rows, is what makes this partial. }
-    Partial := Length(Indices) > 0;
+    Partial := TzIsPartialExtraction(AExtractAll, Length(Indices));
     if not Partial then
       Indices := TzAllIndices(FCtx);
   end;
@@ -7283,20 +7283,14 @@ begin
 
   if O.SmartExtract then
   begin
-    Plan := TzSmartPlan(FCtx.SourcePath, Dest, Entries);
+    { The layout name must be the one the user sees: for a compound archive the
+      context's SourcePath is a temporary unwrapped file (e.g. wrap_XXX.tar). }
+    Plan := TzSmartPlan(FCtx.DisplayName, Dest, Entries);
     if Plan.Layout = slNothing then
     begin
-      if Length(Entries) = 0 then
-      begin
-        { Nothing in the archive to lay out. }
-        FStatus.SimpleText := rsStatusNothingToExtract;
-        Exit;
-      end;
-      { Entries without usable names (a bare single stream): the plain
-        whole-archive extraction names the output itself. }
-      J := TzNewExtractJob(FCtx.SourcePath, FCtx.DisplayName, O.Password, Dest,
-        Indices);
-      StartJob(J, jpExtract, rsBusyExtracting, FCtx.DisplayName, True, True);
+      { Every entry was macOS junk or a directory: nothing to write, and no
+        destination folder is created. }
+      FStatus.SimpleText := rsStatusNoExtractableEntries;
       Exit;
     end;
     Dest := Plan.Dest;
@@ -7312,6 +7306,10 @@ begin
     files those very entries would replace -- never anything else in the
     destination folder, which is usually the user's Downloads. }
   Collisions := ResolveExtractConflicts(Dest, Entries, O.Conflict, Keep);
+  { Junk entries, directories and the stripped root have an empty target: they
+    are never handed to the engine, whatever the conflict policy said. }
+  if O.SmartExtract then
+    TzSmartDropEmptyTargets(Entries, Keep);
   N := 0;
   SetLength(Filtered, Length(Indices));
   for I := 0 to High(Indices) do

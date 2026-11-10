@@ -723,8 +723,10 @@ begin
   Body := NewBody(Self);
   NewLabel(Body, Format(rsDlgSmartConflictFmt, [AArchiveName, ADest]), Pad, Pad,
     CW, Px(cLabelH) * 2);
-  AddButton(rsDlgConflictOverwrite, mrYes, True, False);
-  AddButton(rsDlgConflictRename, mrNo, False, False);
+  AddButton(rsDlgConflictOverwrite, mrYes, False, False);
+  { Return defaults to keeping both, matching the extract dialog's own default
+    conflict policy: a stray Enter must not overwrite files. }
+  AddButton(rsDlgConflictRename, mrNo, True, False);
   AddButton(rsDlgConflictSkip, mrIgnore, False, False);
   AddButton(rsDlgCancel, mrCancel, False, True);
   AutoSizeToContent(CW, Pad + Px(cLabelH) * 2 + Px(16));

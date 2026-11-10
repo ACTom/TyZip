@@ -7,7 +7,9 @@ program api_smart_extract;
   finally strips the single top-level folder while committing the staged tree.
   Everything here uses real archives on disk, no mocks. }
 uses
-  SysUtils, Classes, Process, tzip.api, tzip.engine, tzip.extract;
+  {$IFDEF UNIX}cthreads,{$ENDIF}
+  SysUtils, Classes, Process, tzip.api, tzip.engine, tzip.extract,
+  tzip.jobs, tzip.commands;
 
 var
   Fails, Passes: Integer;
@@ -187,6 +189,53 @@ begin
   EqStr(Trim(ReadText(Dest + '/a.txt')), 'old', 'commit: existing file preserved');
 end;
 
+{ The production path: a real TZJob runs the whole worker branch (unwrap,
+  staging, commit, cleanup). The helpers above passing is not enough -- the app
+  never calls them directly. }
+procedure TestSmartJob;
+var
+  Archive, Final, Err, StagingPattern: string;
+  Entries: TExtractEntryArray;
+  Indices: TLongWordArray;
+  Plan: TSmartPlan;
+  J: TZJob;
+  R: Integer;
+  Done: Boolean;
+  Deadline: QWord;
+  Found: TSearchRec;
+begin
+  if not BuildWrapper(Archive) then Exit;
+  if not ListWrapper(Archive, Entries, Indices) then Exit;
+  Plan := TzSmartPlan(Archive, Root + '/job-out', Entries);
+  Final := Root + '/job-final';
+  DelTree(Final);
+
+  J := TzNewSmartExtractJob(Archive, ExtractFileName(Archive), '',
+    Final, Plan.Root, Indices);
+  try
+    J.Start;
+    Done := False;
+    Deadline := GetTickCount64 + 30000;
+    while (not Done) and (GetTickCount64 < Deadline) do
+    begin
+      Done := J.TakeResult(R, Err);
+      if not Done then Sleep(10);
+    end;
+    Check(Done, 'job: finished in time');
+    Check(R = TZ7Z_OK, 'job: extraction ok (' + Err + ')');
+  finally
+    J.Free;
+  end;
+
+  Check(FileExists(Final + '/a.txt'), 'job: flattened file exists');
+  Check(FileExists(Final + '/sub/b.txt'), 'job: flattened nested file exists');
+  Check(not DirectoryExists(Final + '/photos'), 'job: stripped root is gone');
+  StagingPattern := Final + '/.tyzip-smart-*';
+  Check(FindFirst(StagingPattern, faAnyFile, Found) <> 0,
+    'job: no staging directory left behind');
+  FindClose(Found);
+end;
+
 begin
   Fails := 0;
   Passes := 0;
@@ -205,6 +254,7 @@ begin
 
   TestWrapperExtractsInnerTree;
   TestCommitRules;
+  TestSmartJob;
 
   DelTree(Root);
 

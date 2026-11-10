@@ -979,6 +979,12 @@ msgstr "…另有 %d 项。"
 msgid "Batch finished: %d archives."
 msgstr "批量完成：%d 个压缩包。"
 
+msgid "Nothing was extracted: the archive has no files to write."
+msgstr "没有解压任何文件：压缩包里没有可写出的文件。"
+
+msgid "Extracted files could not be placed in the destination."
+msgstr "解出的文件无法放到目标位置。"
+
 msgid "Add to Archive…"
 msgstr "添加到压缩包…"
 

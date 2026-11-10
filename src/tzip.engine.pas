@@ -1769,15 +1769,13 @@ var
 begin
   AError := '';
   Result := TzOpenContext(APath, ExtractFileName(APath), APassword, nil, False,
-    APath, Ctx, Err);
+    APath, Ctx, Err, AProgress);
   if Result <> TZ7Z_OK then
   begin
     AError := Err;
     Exit;
   end;
   try
-    { The open itself takes no progress sink, exactly like the plain extract job:
-      the extraction below is what the job's cancel sink watches. }
     Result := TzExtract(Ctx.Archive, AIndices, ADest, APassword, AError,
       AProgress);
   finally

@@ -347,6 +347,11 @@ resourcestring
   rsErrDeleteArchiveFmt = 'The archive could not be deleted: %s';
   { Every selected entry was skipped by the destination conflict policy. }
   rsStatusNothingToExtract = 'Nothing was extracted: every selected item already exists in the destination.';
+  { Smart extraction found nothing writable: every entry was macOS junk or a
+    directory. }
+  rsStatusNoExtractableEntries = 'Nothing was extracted: the archive has no files to write.';
+  { Smart extraction could not move the staged tree into the destination. }
+  rsErrSmartExtractPlace = 'Extracted files could not be placed in the destination.';
   { Generic engine error classes: the model layer maps an ABI error code to one
     of these, so the wording lives in the translation catalogs, not in C++. }
   rsErrOk = 'OK';

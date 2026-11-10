@@ -16,7 +16,8 @@ unit tzip.jobs;
 interface
 
 uses
-  SysUtils, Classes, SyncObjs, tzip.api, tzip.engine, tzip.search, tzip.extract;
+  SysUtils, Classes, SyncObjs, tzip.api, tzip.engine, tzip.search, tzip.extract,
+  tzip.i18n;
 
 type
   TZJobKind = (jkOpen, jkList, jkExtract, jkTest, jkExtractOne, jkCreate, jkModify,
@@ -352,6 +353,9 @@ type
     function Clone: TZJob;
 
     function TakeResult(out AResult: Integer; out AError: string): Boolean;
+    { True while the user has asked to cancel; the smart extract commit asks this
+      between files, because the engine sink is no longer involved there. }
+    function CancelledNow: Boolean;
     function GetStartedAt: QWord;
     function Snapshot(out ADone, ATotal: QWord; out ADetail: string): Boolean;
     { Latest per-item/ratio detail; valid while the job runs. }
@@ -475,7 +479,8 @@ begin
     repeat
       if (SR.Name = '.') or (SR.Name = '..') then Continue;
       Item := IncludeTrailingPathDelimiter(APath) + SR.Name;
-      if (SR.Attr and faDirectory) <> 0 then
+      { A symlink to a directory is a file to delete, not a tree to walk. }
+      if ((SR.Attr and faDirectory) <> 0) and (not TzPathIsSymlink(Item)) then
         DeleteJobTree(Item)
       else
         DeleteFile(Item);
@@ -489,44 +494,43 @@ end;
 function TZJobExecutor.ExtractJob(AJob: TZJob; out AError: string): Integer;
 var
   A: TTzArchive;
-  Ctx: TArchiveContext;
   Staging: string;
 begin
   AError := '';
   if AJob.FExtract.Unwrap then
   begin
-    { Smart extraction opens through the context, so a compound archive extracts
-      the tree its inner archive holds instead of a bare inner stream. }
-    Ctx := nil;
-    Result := TzOpenContext(AJob.FExtract.Path, AJob.FExtract.DisplayName,
-      AJob.FExtract.Password, nil, False, AJob.FExtract.Path, Ctx, AError);
-    if Result <> TZ7Z_OK then Exit;
+    { Smart extraction opens through the archive context, so a compound archive
+      extracts the tree its inner archive holds instead of a bare inner stream. }
+    if AJob.FExtract.StripRoot = '' then
+      Exit(TzExtractInContext(AJob.FExtract.Path, AJob.FExtract.Password,
+        AJob.FExtract.Indices, AJob.FExtract.Dest, AError, AJob.FSink));
+
+    { Flatten: extract into a staging folder inside the destination (same volume,
+      so the commit is a rename), then move the contents up. Both steps are here
+      on the worker; the window only sees the result. }
+    Staging := IncludeTrailingPathDelimiter(AJob.FExtract.Dest) +
+      '.tyzip-smart-' + IntToHex(GetTickCount64, 12) + '-' +
+      IntToHex(Random(MaxInt), 8) + PathDelim;
     try
-      if AJob.FExtract.StripRoot = '' then
-        Result := TzExtract(Ctx.Archive, AJob.FExtract.Indices,
-          AJob.FExtract.Dest, AJob.FExtract.Password, AError, AJob.FSink)
-      else
-      begin
-        { Flatten: extract into a staging folder inside the destination (same
-          volume, so the commit is a rename), then move the contents up. Both
-          steps are here, on the worker; the window only sees the result. }
-        Staging := IncludeTrailingPathDelimiter(AJob.FExtract.Dest) +
-          '.tyzip-smart-' + IntToHex(GetTickCount64, 12) + '-' +
-          IntToHex(Random(MaxInt), 8) + PathDelim;
-        ForceDirectories(Staging);
-        Result := TzExtract(Ctx.Archive, AJob.FExtract.Indices, Staging,
-          AJob.FExtract.Password, AError, AJob.FSink);
-        if (Result = TZ7Z_OK) and
-           (not TzCommitStagedTree(Staging, AJob.FExtract.Dest,
-             AJob.FExtract.StripRoot, True)) then
+      ForceDirectories(Staging);
+      Result := TzExtractInContext(AJob.FExtract.Path, AJob.FExtract.Password,
+        AJob.FExtract.Indices, Staging, AError, AJob.FSink);
+      if Result = TZ7Z_OK then
+        if not TzCommitStagedTree(Staging, AJob.FExtract.Dest,
+          AJob.FExtract.StripRoot, True, @AJob.CancelledNow) then
         begin
-          Result := TZ7Z_E_EXTRACT;
-          AError := 'Smart extract could not place the extracted files.';
+          if AJob.CancelledNow then
+            Result := TZ7Z_E_CANCEL
+          else
+          begin
+            Result := TZ7Z_E_EXTRACT;
+            AError := rsErrSmartExtractPlace;
+          end;
         end;
-        DeleteJobTree(Staging);
-      end;
     finally
-      Ctx.Free;
+      { The staging folder is ours: it goes away on success, failure and cancel
+        alike. }
+      DeleteJobTree(Staging);
     end;
     Exit;
   end;
@@ -1475,6 +1479,11 @@ begin
     Result.FScratch.Sources := TStringList.Create;
     Result.FScratch.Sources.Assign(FScratch.Sources);
   end;
+end;
+
+function TZJob.CancelledNow: Boolean;
+begin
+  Result := FCancelRequested;
 end;
 
 function TZJob.TakeResult(out AResult: Integer; out AError: string): Boolean;

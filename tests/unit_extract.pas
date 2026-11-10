@@ -8,7 +8,8 @@ program unit_extract;
   "rename" that overwrites the file it was meant to preserve, a delete that
   removes the archive when the extraction did not actually happen. }
 uses
-  SysUtils, Classes, Process, tzip.extract;
+  SysUtils, Classes, Process, tzip.extract
+  {$IFDEF UNIX}, BaseUnix{$ENDIF};
 
 var
   Fails, Passes: Integer;
@@ -458,6 +459,116 @@ begin
   Check(TzIsPartialExtraction(False, 3), 'partial: a selection is partial');
 end;
 
+{ --- commit rules and real-listing shapes ------------------------------ }
+
+function EntriesOf(const ANames: array of string;
+  const ADirs: array of Boolean): TExtractEntryArray;
+var
+  I: Integer;
+begin
+  SetLength(Result, Length(ANames));
+  for I := 0 to High(ANames) do
+  begin
+    Result[I].Name := ANames[I];
+    if I <= High(ADirs) then Result[I].IsDir := ADirs[I];
+  end;
+end;
+
+procedure TestSmartDirectoryTargets;
+var
+  P: TSmartPlan;
+  Es, T: TExtractEntryArray;
+  K: TExtractEntryKeep;
+begin
+  { Real listings report a directory through IsDir; the name has no trailing
+    slash. A directory is never a file target. }
+  Es := EntriesOf(['photos', 'photos/a.jpg'], [True, False]);
+  P := TzSmartPlan('/tmp/photos.zip', '/tmp/out', Es);
+  T := TzSmartTargetEntries(P, Es);
+  EqStr(T[0].Name, '', 'smart target entries: directory target empty');
+  EqStr(T[1].Name, 'a.jpg', 'smart target entries: file stripped');
+
+  SetLength(K, 2);
+  K[0] := True;
+  K[1] := True;
+  TzSmartDropEmptyTargets(T, K);
+  Check(not K[0], 'smart drop: empty target is not written');
+  Check(K[1], 'smart drop: a real file stays');
+end;
+
+type
+  TCancelProbe = class
+  public
+    Calls: Integer;
+    function Cancelled: Boolean;
+  end;
+
+function TCancelProbe.Cancelled: Boolean;
+begin
+  Inc(Calls);
+  { Let the first file move, then cancel. }
+  Result := Calls > 1;
+end;
+
+procedure TestCommitCancel;
+var
+  Probe: TCancelProbe;
+  Staging, Dest: string;
+  I, Moved: Integer;
+begin
+  Staging := Root + '/cancel-stage';
+  Dest := Root + '/cancel-dest';
+  ForceDirectories(Staging);
+  ForceDirectories(Dest);
+  for I := 1 to 3 do
+    with TStringList.Create do
+    begin
+      Text := 'x';
+      SaveToFile(Staging + '/f' + IntToStr(I) + '.txt');
+      Free;
+    end;
+  Probe := TCancelProbe.Create;
+  try
+    Check(not TzCommitStagedTree(Staging, Dest, '', True, @Probe.Cancelled),
+      'commit: a cancel stops the move');
+    Check(Probe.Calls > 0, 'commit: cancel is asked while moving');
+    Moved := 0;
+    for I := 1 to 3 do
+      if FileExists(Dest + '/f' + IntToStr(I) + '.txt') then Inc(Moved);
+    Check(Moved < 3, 'commit: cancel leaves some files staged');
+  finally
+    Probe.Free;
+  end;
+end;
+
+{$IFDEF UNIX}
+procedure TestCommitSymlink;
+var
+  Staging, Dest, TargetName, LinkPath: string;
+begin
+  { A directory symlink in an archive must not be walked into: the staged tree
+    would list the same files twice and the commit would fail half-way. }
+  Staging := Root + '/link-stage';
+  Dest := Root + '/link-dest';
+  ForceDirectories(Staging + '/real');
+  with TStringList.Create do
+  begin
+    Text := 'x';
+    SaveToFile(Staging + '/real/a.txt');
+    Free;
+  end;
+  TargetName := 'real';
+  LinkPath := Staging + '/link';
+  Check(fpSymLink(PChar(TargetName), PChar(LinkPath)) = 0,
+    'commit: symlink fixture');
+  Check(TzCommitStagedTree(Staging, Dest, '', True),
+    'commit: a symlinked directory does not break the move');
+  Check(FileExists(Dest + '/real/a.txt'), 'commit: real file moved');
+  Check(DirectoryExists(Dest + '/link') or FileExists(Dest + '/link'),
+    'commit: the link itself moved');
+end;
+{$ENDIF}
+
 { --- delete after ------------------------------------------------------- }
 
 procedure TestDeleteAfter;
@@ -497,6 +608,9 @@ begin
   TestSmartTargets;
   TestSmartModes;
   TestPartialExtraction;
+  TestSmartDirectoryTargets;
+  TestCommitCancel;
+  {$IFDEF UNIX}TestCommitSymlink;{$ENDIF}
   TestDeleteAfter;
 
   ExecuteProcess('/bin/rm', ['-rf', Root]);
