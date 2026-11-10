@@ -28,6 +28,10 @@ type
     Destination: string;
     { Put the files in a new folder named after the archive. }
     SmartFolder: Boolean;
+    { Lay the archive's own tree out by structure: one root folder is stripped,
+      a single file is written directly, several roots get a folder named after
+      the archive. Mutually exclusive with SmartFolder. }
+    SmartExtract: Boolean;
     Conflict: TExtractConflict;
     { Remove the archive once the extraction succeeded. }
     DeleteArchiveAfter: Boolean;
@@ -124,6 +128,40 @@ function ResolveExtractConflicts(const ADestDir: string;
   const AEntries: TExtractEntryArray; AConflict: TExtractConflict;
   out AKeep: TExtractEntryKeep): Integer;
 
+{ Smart extraction: where each entry of the archive ends up when the layout is
+  decided from the archive's own structure instead of the user's choice. }
+type
+  TSmartLayout = (
+    slNothing,       { nothing to write: empty archive, or only macOS junk }
+    slDirect,        { the single root file lands directly in the destination }
+    slStripOneRoot,  { one root folder: its contents land in the destination }
+    slChildFolder    { a folder named after the archive holds the entries }
+  );
+  TSmartPlan = record
+    Layout: TSmartLayout;
+    Dest: string;    { folder the files finally land in; '' for slNothing }
+    Root: string;    { slStripOneRoot: the single top-level segment to strip }
+  end;
+
+{ True for the bookkeeping entries smart extraction drops: a path with a
+  '__MACOSX' segment, or an entry named '.DS_Store'. }
+function TzIsJunkEntry(const AEntryName: string): Boolean;
+
+{ The layout smart extraction uses for an archive whose entries are AEntries.
+  ADest is the base destination folder. }
+function TzSmartPlan(const AArchivePath, ADest: string;
+  const AEntries: TExtractEntryArray): TSmartPlan;
+
+{ Index-aligned with AEntries, with each Name replaced by its path relative to
+  APlan.Dest; an entry that will not be written gets an empty Name. }
+function TzSmartTargetEntries(const APlan: TSmartPlan;
+  const AEntries: TExtractEntryArray): TExtractEntryArray;
+
+{ Where AEntryName is written, relative to APlan.Dest; '' when the entry is
+  junk, unsafe, a directory, or the plan writes nothing. }
+function TzSmartTargetPath(const APlan: TSmartPlan;
+  const AEntryName: string): string;
+
 implementation
 
 function DefaultExtractOptions(const ADestination: string): TExtractOptions;
@@ -135,6 +173,7 @@ begin
   { Extracting next to an existing folder of the same name should not merge
     into it, which is what a plain destination does. }
   Result.SmartFolder := False;
+  Result.SmartExtract := False;
   Result.DeleteArchiveAfter := False;
   Result.OpenAfter := False;
   Result.Password := '';
@@ -333,6 +372,154 @@ begin
     Result := DeleteFile(AArchivePath);
   except
     Result := False;
+  end;
+end;
+
+{ --- smart extraction layout -------------------------------------------- }
+
+function NormalizedEntryName(const AName: string): string;
+begin
+  Result := StringReplace(Trim(AName), '\', '/', [rfReplaceAll]);
+  while (Result <> '') and (Result[1] = '/') do Delete(Result, 1, 1);
+end;
+
+function FirstSegmentOf(const ANormalizedName: string): string;
+var
+  I: Integer;
+begin
+  I := Pos('/', ANormalizedName);
+  if I > 0 then
+    Result := Copy(ANormalizedName, 1, I - 1)
+  else
+    Result := ANormalizedName;
+end;
+
+function SegmentCountOf(const ANormalizedName: string): Integer;
+var
+  I, Start: Integer;
+begin
+  Result := 0;
+  Start := 1;
+  for I := 1 to Length(ANormalizedName) + 1 do
+    if (I > Length(ANormalizedName)) or (ANormalizedName[I] = '/') then
+    begin
+      if I > Start then Inc(Result);
+      Start := I + 1;
+    end;
+end;
+
+function TzIsJunkEntry(const AEntryName: string): Boolean;
+var
+  P, Seg: string;
+  I, Start: Integer;
+begin
+  Result := False;
+  P := NormalizedEntryName(AEntryName);
+  If P = '' then Exit;
+  Start := 1;
+  for I := 1 to Length(P) + 1 do
+    if (I > Length(P)) or (P[I] = '/') then
+    begin
+      Seg := Copy(P, Start, I - Start);
+      { Finder's resource forks live in __MACOSX/; .DS_Store can appear at any
+        depth. Both are noise a smart extraction should not leave behind. }
+      if SameText(Seg, '__MACOSX') or SameText(Seg, '.DS_Store') then
+        Exit(True);
+      Start := I + 1;
+    end;
+end;
+
+function TzSmartPlan(const AArchivePath, ADest: string;
+  const AEntries: TExtractEntryArray): TSmartPlan;
+var
+  Base, N, Seg: string;
+  Roots, RootIsDir: TStringList;
+  I, J: Integer;
+begin
+  Result := Default(TSmartPlan);
+  Result.Layout := slNothing;
+  Base := ExcludeTrailingPathDelimiter(ADest);
+  if Base <> '' then Base := IncludeTrailingPathDelimiter(Base);
+  Roots := TStringList.Create;
+  RootIsDir := TStringList.Create;
+  try
+    for I := 0 to High(AEntries) do
+    begin
+      N := NormalizedEntryName(AEntries[I].Name);
+      if N = '' then Continue;
+      if TzIsJunkEntry(AEntries[I].Name) then Continue;
+      if not ExtractEntryNameIsSafe(AEntries[I].Name) then Continue;
+      Seg := FirstSegmentOf(N);
+      if Seg = '' then Continue;
+      J := Roots.IndexOf(Seg);
+      if J < 0 then
+      begin
+        J := Roots.Add(Seg);
+        RootIsDir.Add('0');
+      end;
+      { A root is a folder when the entries below it go deeper, or when the
+        listing also names it as a directory in its own right. }
+      if (SegmentCountOf(N) > 1) or AEntries[I].IsDir then
+        RootIsDir[J] := '1';
+    end;
+
+    if Roots.Count = 0 then
+      Exit;                             { slNothing: Dest stays '' }
+    if Roots.Count = 1 then
+    begin
+      Result.Dest := Base;
+      if RootIsDir[0] = '1' then
+      begin
+        Result.Layout := slStripOneRoot;
+        Result.Root := Roots[0];
+      end
+      else
+        Result.Layout := slDirect;
+      Exit;
+    end;
+
+    Result.Layout := slChildFolder;
+    Result.Dest := Base + SmartFolderName(AArchivePath) + PathDelim;
+  finally
+    RootIsDir.Free;
+    Roots.Free;
+  end;
+end;
+
+function TzSmartTargetPath(const APlan: TSmartPlan;
+  const AEntryName: string): string;
+var
+  N, Prefix: string;
+begin
+  Result := '';
+  if APlan.Layout = slNothing then Exit;
+  if TzIsJunkEntry(AEntryName) then Exit;
+  if not ExtractEntryNameIsSafe(AEntryName) then Exit;
+  N := NormalizedEntryName(AEntryName);
+  if N = '' then Exit;
+  { Directory entries are not files to write; the engine makes their parents. }
+  if (N[Length(N)] = '/') or (N = '.') then Exit;
+  if APlan.Layout = slStripOneRoot then
+  begin
+    if APlan.Root = '' then Exit;
+    Prefix := APlan.Root + '/';
+    if Copy(N, 1, Length(Prefix)) <> Prefix then Exit;
+    N := Copy(N, Length(Prefix) + 1, MaxInt);
+    if N = '' then Exit;
+  end;
+  Result := N;
+end;
+
+function TzSmartTargetEntries(const APlan: TSmartPlan;
+  const AEntries: TExtractEntryArray): TExtractEntryArray;
+var
+  I: Integer;
+begin
+  SetLength(Result, Length(AEntries));
+  for I := 0 to High(AEntries) do
+  begin
+    Result[I] := AEntries[I];
+    Result[I].Name := TzSmartTargetPath(APlan, AEntries[I].Name);
   end;
 end;
 

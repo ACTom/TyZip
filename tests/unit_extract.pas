@@ -39,6 +39,21 @@ begin
   Result := DefaultExtractOptions(ADest);
 end;
 
+{ Build entries the way a listing would: a name ending in '/' is a directory. }
+function SmartEntries(const ANames: array of string): TExtractEntryArray;
+var
+  I: Integer;
+  N: string;
+begin
+  SetLength(Result, Length(ANames));
+  for I := 0 to High(ANames) do
+  begin
+    N := ANames[I];
+    Result[I].Name := N;
+    Result[I].IsDir := (N <> '') and (N[Length(N)] = '/');
+  end;
+end;
+
 { --- smart folder ------------------------------------------------------- }
 
 procedure TestSmartFolderName;
@@ -330,6 +345,86 @@ begin
     'dialog: trailing separator stripped');
 end;
 
+{ --- smart extract layout ----------------------------------------------- }
+
+procedure TestSmartPlan;
+var
+  P: TSmartPlan;
+begin
+  Check(not Opt('/tmp/out').SmartExtract, 'smart plan: option off by default');
+
+  { One root folder: its contents land directly in the destination. }
+  P := TzSmartPlan('/tmp/photos.zip', '/tmp/out',
+    SmartEntries(['photos/a.jpg', 'photos/sub/b.jpg']));
+  Check(P.Layout = slStripOneRoot, 'smart plan: one root folder strips');
+  EqStr(P.Dest, IncludeTrailingPathDelimiter('/tmp/out'), 'smart plan: dest');
+  EqStr(P.Root, 'photos', 'smart plan: root name');
+
+  { The folder name matching the archive stem still strips: that is the point. }
+  P := TzSmartPlan('/tmp/photos.zip', '/tmp/out',
+    SmartEntries(['photos/a.jpg']));
+  Check(P.Layout = slStripOneRoot, 'smart plan: root equals stem still strips');
+
+  { One root file: written directly. }
+  P := TzSmartPlan('/tmp/data.zip', '/tmp/out', SmartEntries(['data.txt']));
+  Check(P.Layout = slDirect, 'smart plan: single file direct');
+  EqStr(P.Dest, IncludeTrailingPathDelimiter('/tmp/out'), 'smart plan: direct dest');
+
+  { Several roots: a folder named after the archive, two suffixes stripped. }
+  P := TzSmartPlan('/tmp/photos.tar.gz', '/tmp/out',
+    SmartEntries(['photos/a.jpg', 'docs/b.txt']));
+  Check(P.Layout = slChildFolder, 'smart plan: several roots make a folder');
+  EqStr(P.Dest, '/tmp/out/photos/', 'smart plan: child folder name');
+
+  { macOS junk does not make a second root. }
+  P := TzSmartPlan('/tmp/photos.zip', '/tmp/out',
+    SmartEntries(['photos/a.jpg', '__MACOSX/._a.jpg', '.DS_Store']));
+  Check(P.Layout = slStripOneRoot, 'smart plan: junk ignored for roots');
+
+  { Empty and junk-only archives write nothing. }
+  P := TzSmartPlan('/tmp/empty.zip', '/tmp/out', SmartEntries([]));
+  Check(P.Layout = slNothing, 'smart plan: empty archive');
+  EqStr(P.Dest, '', 'smart plan: empty archive has no dest');
+  P := TzSmartPlan('/tmp/junk.zip', '/tmp/out',
+    SmartEntries(['__MACOSX/x', '.DS_Store']));
+  Check(P.Layout = slNothing, 'smart plan: junk only');
+
+  { Unsafe names take no part in the root set. }
+  P := TzSmartPlan('/tmp/a.zip', '/tmp/out',
+    SmartEntries(['a/x.txt', '../evil', '/abs/path']));
+  Check(P.Layout = slStripOneRoot, 'smart plan: only safe roots count');
+end;
+
+procedure TestSmartTargets;
+var
+  P: TSmartPlan;
+  T: TExtractEntryArray;
+begin
+  P := TzSmartPlan('/tmp/photos.zip', '/tmp/out',
+    SmartEntries(['photos/a.jpg', 'photos/sub/b.jpg']));
+  EqStr(TzSmartTargetPath(P, 'photos/a.jpg'), 'a.jpg', 'smart target: stripped');
+  EqStr(TzSmartTargetPath(P, 'photos/sub/b.jpg'), 'sub/b.jpg', 'smart target: nested');
+  EqStr(TzSmartTargetPath(P, 'photos/'), '', 'smart target: root folder itself');
+  EqStr(TzSmartTargetPath(P, '__MACOSX/._a.jpg'), '', 'smart target: junk');
+  EqStr(TzSmartTargetPath(P, 'a/.DS_Store'), '', 'smart target: nested .DS_Store');
+  EqStr(TzSmartTargetPath(P, '../evil'), '', 'smart target: unsafe');
+
+  { Entries keep their order; unwritable ones get an empty target. }
+  T := TzSmartTargetEntries(P, SmartEntries(['photos/a.jpg', 'photos/']));
+  Check(Length(T) = 2, 'smart target entries: index-aligned');
+  EqStr(T[0].Name, 'a.jpg', 'smart target entries: file target');
+  EqStr(T[1].Name, '', 'smart target entries: directory target empty');
+
+  P := TzSmartPlan('/tmp/data.zip', '/tmp/out', SmartEntries(['data.txt']));
+  EqStr(TzSmartTargetPath(P, 'data.txt'), 'data.txt', 'smart target: direct');
+
+  P := TzSmartPlan('/tmp/many.zip', '/tmp/out', SmartEntries(['a.txt', 'b.txt']));
+  EqStr(TzSmartTargetPath(P, 'a.txt'), 'a.txt', 'smart target: child folder file');
+
+  P := TzSmartPlan('/tmp/empty.zip', '/tmp/out', SmartEntries([]));
+  EqStr(TzSmartTargetPath(P, 'a.txt'), '', 'smart target: nothing planned');
+end;
+
 { --- delete after ------------------------------------------------------- }
 
 procedure TestDeleteAfter;
@@ -365,6 +460,8 @@ begin
   TestDialogExtractDir;
   TestDefaults;
   TestQuickDestinations;
+  TestSmartPlan;
+  TestSmartTargets;
   TestDeleteAfter;
 
   ExecuteProcess('/bin/rm', ['-rf', Root]);
