@@ -772,6 +772,12 @@ msgstr "位置："
 msgid "Extract into a folder named after the archive"
 msgstr "解压到以压缩包命名的新文件夹"
 
+msgid "Smart extract"
+msgstr "智能解压"
+
+msgid "Smart extract needs the whole archive"
+msgstr "解压部分内容不支持智能解压"
+
 msgid "If a file exists:"
 msgstr "若文件已存在："
 

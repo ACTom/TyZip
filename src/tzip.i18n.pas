@@ -205,6 +205,8 @@ resourcestring
   rsDlgPresetSavedFmt = 'Preset "%s" saved.';
   rsDlgQuickDest = 'Where:';
   rsDlgSmartFolder = 'Extract into a folder named after the archive';
+  rsDlgSmartExtract = 'Smart extract';
+  rsDlgSmartExtractPartialHint = 'Smart extract needs the whole archive';
   rsDlgOnConflict = 'If a file exists:';
   rsDlgConflictOverwrite = 'Overwrite';
   rsDlgConflictSkip = 'Skip';

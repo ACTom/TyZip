@@ -6935,7 +6935,8 @@ begin
     Exit;
   end;
   Dest := ExtractFallbackDir(AArchives[0]);
-  if not ShowExtractDialog(Self, AArchives.Count, Dest, False, O) then Exit;
+  if not ShowExtractDialog(Self, AArchives.Count, Dest, False, False, O) then
+    Exit;
   NewDest := O.Destination;
   if NewDest = '' then NewDest := Dest;
   if NewDest = '' then Exit;
@@ -7173,7 +7174,7 @@ begin
   Cnt := Length(Indices);
 
   if not ShowExtractDialog(Self, Cnt, ExtractFallbackDir(FCtx.SourcePath),
-    FCtx.HasEncrypted, O) then Exit;
+    FCtx.HasEncrypted, False, O) then Exit;
 
   { A shortcut that named no folder means "next to the archive". }
   Dest := O.Destination;

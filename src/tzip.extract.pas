@@ -170,6 +170,12 @@ function TzSmartTargetPath(const APlan: TSmartPlan;
 function TzCommitStagedTree(const AStaging, ADest, ARoot: string;
   AReplace: Boolean): Boolean;
 
+{ The layout toggles the extract dialog shows, resolved to what extraction may
+  do: smart extraction needs the whole archive (APartial = False), and the two
+  layout modes are mutually exclusive with smart winning. }
+procedure TzResolveExtractModes(ASmartChecked, AFolderChecked, APartial: Boolean;
+  out ASmartExtract, ASmartFolder: Boolean);
+
 implementation
 
 function DefaultExtractOptions(const ADestination: string): TExtractOptions;
@@ -597,6 +603,15 @@ begin
   finally
     Files.Free;
   end;
+end;
+
+procedure TzResolveExtractModes(ASmartChecked, AFolderChecked, APartial: Boolean;
+  out ASmartExtract, ASmartFolder: Boolean);
+begin
+  { Smart extraction lays the tree out itself, so it cannot be combined with
+    "always add a folder" -- and it needs the whole archive, not a selection. }
+  ASmartExtract := ASmartChecked and (not APartial);
+  ASmartFolder := AFolderChecked and (not ASmartExtract);
 end;
 
 end.

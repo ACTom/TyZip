@@ -97,15 +97,18 @@ type
     FOpenAfter: TTyCheckBox;
     FDeleteAfter: TTyCheckBox;
     FSmartFolder: TTyCheckBox;
+    FSmartExtract: TTyCheckBox;
+    FPartial: Boolean;
     FConflict: TTyComboBox;
     FQuick: TTyComboBox;
     procedure BrowseClick(Sender: TObject);
     procedure QuickChange(Sender: TObject);
+    procedure ModeChange(Sender: TObject);
     function GetOptions: TExtractOptions;
   public
     constructor Create(AOwner: TComponent;
       ACount: Integer; const ADefaultDest: string;
-      ANeedsPassword: Boolean); reintroduce;
+      ANeedsPassword, APartial: Boolean); reintroduce;
     property Options: TExtractOptions read GetOptions;
   end;
 
@@ -211,7 +214,7 @@ type
 function AskPassword(AOwner: TForm; const APrompt: string; var APassword: string): Boolean;
 
 function ShowExtractDialog(AOwner: TForm;
-  ACount: Integer; const ADefaultDest: string; ANeedsPassword: Boolean;
+  ACount: Integer; const ADefaultDest: string; ANeedsPassword, APartial: Boolean;
   out AOptions: TExtractOptions): Boolean;
 { The create dialog. ASeed may carry settings the caller wants pre-filled --
   conversion uses it to keep the source archive's password and level, which the
@@ -538,7 +541,7 @@ end;
   --------------------------------------------------------------------------- }
 
 constructor TExtractDialogForm.Create(AOwner: TComponent;
-  ACount: Integer; const ADefaultDest: string; ANeedsPassword: Boolean);
+  ACount: Integer; const ADefaultDest: string; ANeedsPassword, APartial: Boolean);
 var
   Body: TTyPanel;
   Pad, CW, Y: Integer;
@@ -576,10 +579,24 @@ begin
     Px(92), Px(cBodyBtnH), @BrowseClick);
   Y := Y + Px(40);
 
-  { A smart folder keeps an archive from merging into an existing folder of the
-    same name, which a plain destination would do silently. }
-  FSmartFolder := NewCheckBox(Body, rsDlgSmartFolder, Pad, Y, Px(460), Px(cCheckH));
+  { Two layout modes on one row, mutually exclusive: smart extraction decides
+    the nesting itself, a named folder always adds one. A partial selection
+    cannot be laid out by structure, so the smart box is disabled there. }
+  FPartial := APartial;
+  FSmartExtract := NewCheckBox(Body, rsDlgSmartExtract, Pad, Y, Px(150),
+    Px(cCheckH));
+  FSmartExtract.Checked := False;
+  FSmartExtract.Enabled := not APartial;
+  if APartial then
+  begin
+    FSmartExtract.Hint := rsDlgSmartExtractPartialHint;
+    FSmartExtract.ShowHint := True;
+  end;
+  FSmartExtract.OnChange := @ModeChange;
+  FSmartFolder := NewCheckBox(Body, rsDlgSmartFolder, Pad + Px(160), Y,
+    Px(360), Px(cCheckH));
   FSmartFolder.Checked := False;
+  FSmartFolder.OnChange := @ModeChange;
   Y := Y + Px(30);
 
   NewLabel(Body, rsDlgOnConflict, Pad, Y + Px(4), Px(110), Px(cLabelH));
@@ -636,11 +653,19 @@ begin
   FDest.Text := Dests[FQuick.ItemIndex - 1];
 end;
 
+procedure TExtractDialogForm.ModeChange(Sender: TObject);
+begin
+  { The two layout choices are alternatives, not switches that add up. }
+  FSmartFolder.Enabled := not FSmartExtract.Checked;
+  FSmartExtract.Enabled := (not FPartial) and (not FSmartFolder.Checked);
+end;
+
 function TExtractDialogForm.GetOptions: TExtractOptions;
 begin
   Result := Default(TExtractOptions);
   Result.Destination := FDest.Text;
-  Result.SmartFolder := FSmartFolder.Checked;
+  TzResolveExtractModes(FSmartExtract.Checked, FSmartFolder.Checked, FPartial,
+    Result.SmartExtract, Result.SmartFolder);
   case FConflict.ItemIndex of
     0: Result.Conflict := ecOverwrite;
     1: Result.Conflict := ecSkip;
@@ -653,13 +678,14 @@ begin
 end;
 
 function ShowExtractDialog(AOwner: TForm;
-  ACount: Integer; const ADefaultDest: string; ANeedsPassword: Boolean;
+  ACount: Integer; const ADefaultDest: string; ANeedsPassword, APartial: Boolean;
   out AOptions: TExtractOptions): Boolean;
 var
   D: TExtractDialogForm;
 begin
   AOptions := Default(TExtractOptions);
-  D := TExtractDialogForm.Create(AOwner, ACount, ADefaultDest, ANeedsPassword);
+  D := TExtractDialogForm.Create(AOwner, ACount, ADefaultDest, ANeedsPassword,
+    APartial);
   try
     Result := D.ShowModal = mrOk;
     if Result then AOptions := D.Options;
