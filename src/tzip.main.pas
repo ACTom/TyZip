@@ -7155,26 +7155,31 @@ var
   Indices, Filtered: TLongWordArray;
   Entries: TExtractEntryArray;
   Keep: TExtractEntryKeep;
+  Plan: TSmartPlan;
   O: TExtractOptions;
   Dest: string;
+  Partial: Boolean;
   Cnt, I, N, Collisions: Integer;
   J: TZJob;
 begin
   if (FCtx = nil) or (FMode <> nkArchive) then Exit;
   if FJob <> nil then Exit;
+  Partial := False;
   if AExtractAll then
     Indices := TzAllIndices(FCtx)
   else
   begin
     Indices := SelectedArchiveIndices(False);
-    if Length(Indices) = 0 then
+    { A selection, not just the visible rows, is what makes this partial. }
+    Partial := Length(Indices) > 0;
+    if not Partial then
       Indices := TzAllIndices(FCtx);
   end;
   if Length(Indices) = 0 then Exit;
   Cnt := Length(Indices);
 
   if not ShowExtractDialog(Self, Cnt, ExtractFallbackDir(FCtx.SourcePath),
-    FCtx.HasEncrypted, False, O) then Exit;
+    FCtx.HasEncrypted, Partial, O) then Exit;
 
   { A shortcut that named no folder means "next to the archive". }
   Dest := O.Destination;
@@ -7182,11 +7187,11 @@ begin
   if Dest = '' then Exit;
 
   { The smart folder is resolved here, not in the dialog: only this side knows
-    where the archive actually lives. }
+    where the archive actually lives. Smart extraction resolves its own layout
+    inside this same destination. }
   O.Destination := Dest;
   Dest := ResolveExtractDir(FCtx.SourcePath, O);
   if Dest = '' then Exit;
-  ForceDirectories(Dest);
 
   if O.Password = '' then O.Password := FCtx.Password;
   FExtractOpenAfter := O.OpenAfter or FSettings.OpenAfterExtract;
@@ -7194,12 +7199,38 @@ begin
     the archive. }
   FExtractDeleteAfter := O.DeleteArchiveAfter;
 
+  Entries := ExtractEntryList(Indices);
+
+  if O.SmartExtract then
+  begin
+    Plan := TzSmartPlan(FCtx.SourcePath, Dest, Entries);
+    if Plan.Layout = slNothing then
+    begin
+      if Length(Entries) = 0 then
+      begin
+        { Nothing in the archive to lay out. }
+        FStatus.SimpleText := rsStatusNothingToExtract;
+        Exit;
+      end;
+      { Entries without usable names (a bare single stream): the plain
+        whole-archive extraction names the output itself. }
+      J := TzNewExtractJob(FCtx.SourcePath, FCtx.DisplayName, O.Password, Dest,
+        Indices);
+      StartJob(J, jpExtract, rsBusyExtracting, FCtx.DisplayName, True, True);
+      Exit;
+    end;
+    Dest := Plan.Dest;
+    ForceDirectories(Dest);
+    Entries := TzSmartTargetEntries(Plan, Entries);
+  end
+  else
+    ForceDirectories(Dest);
+
   { The conflict policy is decided entry by entry, BEFORE the engine starts: it
     always overwrites and cannot stop to ask. "Skip" is expressed by not
     requesting those entries at all, and "rename" only moves aside the existing
     files those very entries would replace -- never anything else in the
     destination folder, which is usually the user's Downloads. }
-  Entries := ExtractEntryList(Indices);
   Collisions := ResolveExtractConflicts(Dest, Entries, O.Conflict, Keep);
   N := 0;
   SetLength(Filtered, Length(Indices));
@@ -7218,7 +7249,12 @@ begin
   end;
   Indices := Filtered;
 
-  J := TzNewExtractJob(FCtx.SourcePath, FCtx.DisplayName, O.Password, Dest, Indices);
+  if O.SmartExtract then
+    J := TzNewSmartExtractJob(FCtx.SourcePath, FCtx.DisplayName, O.Password,
+      Dest, Plan.Root, Indices)
+  else
+    J := TzNewExtractJob(FCtx.SourcePath, FCtx.DisplayName, O.Password, Dest,
+      Indices);
   StartJob(J, jpExtract, rsBusyExtracting, FCtx.DisplayName, True, True);
 end;
 

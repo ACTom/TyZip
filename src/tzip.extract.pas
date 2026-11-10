@@ -176,6 +176,11 @@ function TzCommitStagedTree(const AStaging, ADest, ARoot: string;
 procedure TzResolveExtractModes(ASmartChecked, AFolderChecked, APartial: Boolean;
   out ASmartExtract, ASmartFolder: Boolean);
 
+{ True when the user asked for a subset. "Extract all" and an empty selection
+  both mean the whole archive; smart extraction needs the whole one. }
+function TzIsPartialExtraction(AExtractAll: Boolean;
+  ASelectedCount: Integer): Boolean;
+
 implementation
 
 function DefaultExtractOptions(const ADestination: string): TExtractOptions;
@@ -612,6 +617,12 @@ begin
     "always add a folder" -- and it needs the whole archive, not a selection. }
   ASmartExtract := ASmartChecked and (not APartial);
   ASmartFolder := AFolderChecked and (not ASmartExtract);
+end;
+
+function TzIsPartialExtraction(AExtractAll: Boolean;
+  ASelectedCount: Integer): Boolean;
+begin
+  Result := (not AExtractAll) and (ASelectedCount > 0);
 end;
 
 end.

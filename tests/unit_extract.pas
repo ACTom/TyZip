@@ -399,8 +399,7 @@ procedure TestSmartTargets;
 var
   P: TSmartPlan;
   T: TExtractEntryArray;
-begin
-  P := TzSmartPlan('/tmp/photos.zip', '/tmp/out',
+begin  P := TzSmartPlan('/tmp/photos.zip', '/tmp/out',
     SmartEntries(['photos/a.jpg', 'photos/sub/b.jpg']));
   EqStr(TzSmartTargetPath(P, 'photos/a.jpg'), 'a.jpg', 'smart target: stripped');
   EqStr(TzSmartTargetPath(P, 'photos/sub/b.jpg'), 'sub/b.jpg', 'smart target: nested');
@@ -423,6 +422,40 @@ begin
 
   P := TzSmartPlan('/tmp/empty.zip', '/tmp/out', SmartEntries([]));
   EqStr(TzSmartTargetPath(P, 'a.txt'), '', 'smart target: nothing planned');
+end;
+
+{ --- dialog mode rules ------------------------------------------------ }
+
+procedure TestSmartModes;
+var
+  Smart, Folder: Boolean;
+begin
+  TzResolveExtractModes(True, False, False, Smart, Folder);
+  Check(Smart and not Folder, 'modes: smart checked');
+  TzResolveExtractModes(False, True, False, Smart, Folder);
+  Check(not Smart and Folder, 'modes: folder checked');
+  { Two layout modes at once: smart wins, the folder one is greyed out anyway. }
+  TzResolveExtractModes(True, True, False, Smart, Folder);
+  Check(Smart and not Folder, 'modes: smart wins over folder');
+  { Smart extraction needs the whole archive. }
+  TzResolveExtractModes(True, False, True, Smart, Folder);
+  Check(not Smart and not Folder, 'modes: partial selection disables smart');
+  TzResolveExtractModes(False, True, True, Smart, Folder);
+  Check(not Smart and Folder, 'modes: partial keeps the folder option');
+  TzResolveExtractModes(False, False, False, Smart, Folder);
+  Check(not Smart and not Folder, 'modes: neither');
+end;
+
+{ --- partial selection -------------------------------------------------- }
+
+procedure TestPartialExtraction;
+begin
+  Check(not TzIsPartialExtraction(True, 0), 'partial: extract all is whole');
+  Check(not TzIsPartialExtraction(True, 3),
+    'partial: extract all ignores a leftover selection');
+  Check(not TzIsPartialExtraction(False, 0),
+    'partial: nothing selected means the whole archive');
+  Check(TzIsPartialExtraction(False, 3), 'partial: a selection is partial');
 end;
 
 { --- delete after ------------------------------------------------------- }
@@ -462,6 +495,8 @@ begin
   TestQuickDestinations;
   TestSmartPlan;
   TestSmartTargets;
+  TestSmartModes;
+  TestPartialExtraction;
   TestDeleteAfter;
 
   ExecuteProcess('/bin/rm', ['-rf', Root]);
