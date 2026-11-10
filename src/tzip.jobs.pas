@@ -16,7 +16,7 @@ unit tzip.jobs;
 interface
 
 uses
-  SysUtils, Classes, SyncObjs, tzip.api, tzip.engine, tzip.search;
+  SysUtils, Classes, SyncObjs, tzip.api, tzip.engine, tzip.search, tzip.extract;
 
 type
   TZJobKind = (jkOpen, jkList, jkExtract, jkTest, jkExtractOne, jkCreate, jkModify,
@@ -73,6 +73,12 @@ type
     Password: string;
     Dest: string;
     Indices: TLongWordArray;
+    { Smart extraction: open through TzOpenContext so a compound archive
+      extracts its inner tree instead of the bare inner stream. }
+    Unwrap: Boolean;
+    { Non-empty: extract into a staging folder, then commit the tree with this
+      single top-level segment stripped (the smart "one root folder" layout). }
+    StripRoot: string;
   end;
 
   { What a test job carries. }
@@ -268,6 +274,10 @@ type
     procedure SetArcPrefix(const AValue: string);
     function GetIndices: TLongWordArray;
     procedure SetIndices(const AValue: TLongWordArray);
+    function GetUnwrap: Boolean;
+    procedure SetUnwrap(const AValue: Boolean);
+    function GetStripRoot: string;
+    procedure SetStripRoot(const AValue: string);
     function GetRemoveIndices: TLongWordArray;
     procedure SetRemoveIndices(const AValue: TLongWordArray);
     function GetNewComment: string;
@@ -315,6 +325,9 @@ type
     property Dest: string read GetDest write SetDest;
     property ArcPrefix: string read GetArcPrefix write SetArcPrefix;
     property Indices: TLongWordArray read GetIndices write SetIndices;
+    { Smart extraction switches: valid on jkExtract only. }
+    property Unwrap: Boolean read GetUnwrap write SetUnwrap;
+    property StripRoot: string read GetStripRoot write SetStripRoot;
     property RemoveIndices: TLongWordArray read GetRemoveIndices write SetRemoveIndices;
     property NewComment: string read GetNewComment write SetNewComment;
     property SetComment: Boolean read GetSetComment write SetSetComment;
@@ -449,12 +462,76 @@ begin
   Result := TZ7Z_OK;
 end;
 
+{ Best-effort recursive delete of a staging folder this job created. Files are
+  removed first; a directory that refuses to go simply stays behind. }
+procedure DeleteJobTree(const APath: string);
+var
+  SR: TSearchRec;
+  Item: string;
+begin
+  if APath = '' then Exit;
+  if FindFirst(IncludeTrailingPathDelimiter(APath) + '*', faAnyFile, SR) = 0 then
+  try
+    repeat
+      if (SR.Name = '.') or (SR.Name = '..') then Continue;
+      Item := IncludeTrailingPathDelimiter(APath) + SR.Name;
+      if (SR.Attr and faDirectory) <> 0 then
+        DeleteJobTree(Item)
+      else
+        DeleteFile(Item);
+    until FindNext(SR) <> 0;
+  finally
+    FindClose(SR);
+  end;
+  RemoveDir(APath);
+end;
+
 function TZJobExecutor.ExtractJob(AJob: TZJob; out AError: string): Integer;
 var
   A: TTzArchive;
+  Ctx: TArchiveContext;
+  Staging: string;
 begin
-  A := nil;
   AError := '';
+  if AJob.FExtract.Unwrap then
+  begin
+    { Smart extraction opens through the context, so a compound archive extracts
+      the tree its inner archive holds instead of a bare inner stream. }
+    Ctx := nil;
+    Result := TzOpenContext(AJob.FExtract.Path, AJob.FExtract.DisplayName,
+      AJob.FExtract.Password, nil, False, AJob.FExtract.Path, Ctx, AError);
+    if Result <> TZ7Z_OK then Exit;
+    try
+      if AJob.FExtract.StripRoot = '' then
+        Result := TzExtract(Ctx.Archive, AJob.FExtract.Indices,
+          AJob.FExtract.Dest, AJob.FExtract.Password, AError, AJob.FSink)
+      else
+      begin
+        { Flatten: extract into a staging folder inside the destination (same
+          volume, so the commit is a rename), then move the contents up. Both
+          steps are here, on the worker; the window only sees the result. }
+        Staging := IncludeTrailingPathDelimiter(AJob.FExtract.Dest) +
+          '.tyzip-smart-' + IntToHex(GetTickCount64, 12) + '-' +
+          IntToHex(Random(MaxInt), 8) + PathDelim;
+        ForceDirectories(Staging);
+        Result := TzExtract(Ctx.Archive, AJob.FExtract.Indices, Staging,
+          AJob.FExtract.Password, AError, AJob.FSink);
+        if (Result = TZ7Z_OK) and
+           (not TzCommitStagedTree(Staging, AJob.FExtract.Dest,
+             AJob.FExtract.StripRoot, True)) then
+        begin
+          Result := TZ7Z_E_EXTRACT;
+          AError := 'Smart extract could not place the extracted files.';
+        end;
+        DeleteJobTree(Staging);
+      end;
+    finally
+      Ctx.Free;
+    end;
+    Exit;
+  end;
+
+  A := nil;
   Result := TzOpenArchive(AJob.FExtract.Path, AJob.FExtract.Password, A, AError);
   try
     if Result = TZ7Z_OK then
@@ -1158,6 +1235,42 @@ begin
     jkTest: FTest.Indices := AValue;
   else
     FScratch.Indices := AValue;
+  end;
+end;
+
+function TZJob.GetUnwrap: Boolean;
+begin
+  case FKind of
+    jkExtract: Result := FExtract.Unwrap;
+  else
+    Result := False;
+  end;
+end;
+
+procedure TZJob.SetUnwrap(const AValue: Boolean);
+begin
+  case FKind of
+    jkExtract: FExtract.Unwrap := AValue;
+  else
+    begin end;
+  end;
+end;
+
+function TZJob.GetStripRoot: string;
+begin
+  case FKind of
+    jkExtract: Result := FExtract.StripRoot;
+  else
+    Result := '';
+  end;
+end;
+
+procedure TZJob.SetStripRoot(const AValue: string);
+begin
+  case FKind of
+    jkExtract: FExtract.StripRoot := AValue;
+  else
+    begin end;
   end;
 end;
 

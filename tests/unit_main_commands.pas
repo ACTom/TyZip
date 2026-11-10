@@ -144,6 +144,22 @@ begin
   try
     EqStr(J.Dest, '', 'batch extract: no destination stays empty');
   finally J.Free; end;
+
+  { Smart extraction: unwraps the archive through its context and, when the plan
+    strips a root folder, asks the job to stage and commit the tree. }
+  SetLength(Idx, 2);
+  Idx[0] := 3;
+  Idx[1] := 4;
+  J := TzNewSmartExtractJob('/a.tar.gz', 'a.tar.gz', '', '/out', 'photos', Idx);
+  try
+    Check(J.Kind = jkExtract, 'smart extract: kind');
+    EqStr(J.Dest, '/out', 'smart extract: destination');
+    EqStr(J.StripRoot, 'photos', 'smart extract: strip root');
+    Check(J.Unwrap, 'smart extract: unwraps the wrapper');
+    EqInt(Length(J.Indices), 2, 'smart extract: both indices');
+    Idx[0] := 9;
+    Check(J.Indices[0] = 3, 'smart extract: indices are copied, not aliased');
+  finally J.Free; end;
 end;
 
 procedure TestTestJobs;

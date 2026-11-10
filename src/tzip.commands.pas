@@ -53,6 +53,12 @@ function TzNewRenameJob(const APath, ADisplayName, APassword: string;
 function TzNewExtractJob(const APath, ADisplayName, APassword, ADest: string;
   const AIndices: TLongWordArray): TZJob;
 
+{ Smart extraction: open the archive through its context (a compound archive
+  extracts its inner tree, not a bare inner stream) and, when AStripRoot is not
+  empty, stage the tree and commit it with that top-level segment stripped. }
+function TzNewSmartExtractJob(const APath, ADisplayName, APassword, ADest,
+  AStripRoot: string; const AIndices: TLongWordArray): TZJob;
+
 { One archive of a batch extraction: whole archive, ADest gets a trailing
   separator so the engine writes inside it. }
 function TzNewBatchExtractJob(const APath, ADest, APassword: string): TZJob;
@@ -157,6 +163,14 @@ begin
   Result.Password := APassword;
   Result.Dest := ADest;
   Result.Indices := Copy(AIndices);
+end;
+
+function TzNewSmartExtractJob(const APath, ADisplayName, APassword, ADest,
+  AStripRoot: string; const AIndices: TLongWordArray): TZJob;
+begin
+  Result := TzNewExtractJob(APath, ADisplayName, APassword, ADest, AIndices);
+  Result.Unwrap := True;
+  Result.StripRoot := AStripRoot;
 end;
 
 function TzNewBatchExtractJob(const APath, ADest, APassword: string): TZJob;
