@@ -60,7 +60,7 @@ TyZip 是一个单一 macOS 应用（Lazarus / Free Pascal + LCL Cocoa，控件�
 | `tzip.iconstore.pas`、`tzip.iconkeys.pas` | 控制器 | 后缀/应用键 → 图像槽表与待办队列；缓存键、过期与 `TzIconWorkAllowed` 门控策略。 |
 | `tzip.jobcontrol.pas`、`tzip.jobqueue.pas` | 控制器 | 等待作业 FIFO、批量计数与汇总、密码重试克隆。 |
 | `tzip.commands.pas` | 控制器 | 归档命令的 `TZJob` 与 `TCreateSettings` 构造（modify / rename / extract / test / batch）。 |
-| `tzip.batch.pas` | 控制器 | 批量解压状态机：逐包 list → 冲突处理 → extract，取消即停。 |
+| `tzip.batch.pas` | 控制器 | 批量解压状态机：逐包 list → 落点/冲突处理 → extract，取消即停；落点模式普通 / 同名文件夹 / 智能。 |
 | `tzip.createopts.pas`、`tzip.presets.pas`、`tzip.appcache.pas` | 控制器 | 可写格式能力表与压缩选项清单；压缩预设 INI；哪些 `.app` 可缓存及 `app_*` 键。 |
 | `tzip.preview.session.pas`、`tzip.preview.workers.pas` | 控制器 | 预览字节/像素预算与缩放常量；后台解出一个条目、后台解码图像（带 generation）。 |
 | `tzip.engine.pas` | 引擎 | `TArchiveContext`、条目快照、`TzOpenContext`（含 wrapper 解包）、列表/搜索/输入集。 |
@@ -68,7 +68,7 @@ TyZip 是一个单一 macOS 应用（Lazarus / Free Pascal + LCL Cocoa，控件�
 | `tzip.api.pas` | API（门面） | 门面：`TTzArchive`、`TzOpenArchive` / `TzExtract` / `TzCreate` 等与 `TCreateSettings`。 |
 | `tzip.api.bind.pas`、`tzip.api.errors.pas`、`tzip.api.formats.pas` | API | ABI 记录与符号绑定；11 个错误码的分类与文案；格式表 JSON 解析。 |
 | `tzip.formats.pas`、`tzip.arcpath.pas` | 引擎 | 后缀表（可写 / 双层 / 纯压缩 / 文档）与归档内路径规范化、选中行取名。 |
-| `tzip.extract.pas`、`tzip.search.pas` | 引擎 | 解压选项、目标目录与冲突策略、唯一路径；名称/内容搜索的匹配与预算。 |
+| `tzip.extract.pas`、`tzip.search.pas` | 引擎 | 解压选项、目标目录与冲突策略、唯一路径、智能布局（摊平/直出/包名文件夹、垃圾过滤）、暂存树提交；名称/内容搜索的匹配与预算。 |
 | `tzip.rename.pas`、`tzip.editwrite.pas` | 引擎 | 条目改名校验与目标路径；外部编辑后的回写判定。 |
 | `tzip.platform.pas`、`tzip.platform_macos.pas`、`tzip.services_macos.pas` | 平台 | 跨平台门面；平台系统调用集中在 macOS 实现（另有几个 UI 单元带 Cocoa 分支）；Finder Services 提供者。 |
 | `tzip.settings.pas` | 横切 | `TAppSettings`、面板宽度钳制、INI 读写、最近打开列表。 |

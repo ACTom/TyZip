@@ -54,6 +54,18 @@ hash), and any item that failed.
       unrelated file already in the destination folder stays byte-identical.
 - [ ] Extract with "delete archive after" — the view leaves the archive first,
       the file is removed, and a failure to delete is reported.
+- [ ] Open an archive whose only top-level entry is a folder (or a Finder-made
+      zip with `__MACOSX/` beside it), tick "Smart extract": the contents land
+      directly in the destination, with no extra folder and no `__MACOSX`.
+- [ ] Select a few entries inside an open archive: the "Smart extract" box is
+      greyed out, and hovering it explains that it needs the whole archive.
+- [ ] Right-click a single archive in Finder → Services → "TyZip: Smart Extract":
+      the progress card appears without any dialog, and the files land by the
+      archive's structure. Repeat with 2+ archives selected (each lands next to
+      itself).
+- [ ] With a file of the same name already in the destination, the smart service
+      asks once (Overwrite / Keep both / Skip / Cancel); Cancel stops the batch.
+- [ ] Smart-extract a `.tar.gz`: the inner tree appears, not a bare `.tar` file.
 
 ## Batch / queue
 
