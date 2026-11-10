@@ -117,6 +117,14 @@ function TzOpenContext(const APath, ADisplayName, APassword: string;
   out AContext: TArchiveContext; out AError: string;
   AProgress: TZ7ZProgressSink = nil): Integer;
 
+{ Extract AIndices to ADest through an archive context, so a compound archive
+  (.tar.gz and friends) extracts the tree its inner archive holds instead of the
+  bare inner stream. The context is freed here, which also removes any temporary
+  file the unwrap needed. }
+function TzExtractInContext(const APath, APassword: string;
+  const AIndices: TLongWordArray; const ADest: string;
+  out AError: string; AProgress: TZ7ZProgressSink = nil): Integer;
+
 function TzListArchive(AContext: TArchiveContext; const AInnerPath, AFilter: string;
   ASort: TArchiveSortColumn; ADescending: Boolean): TListing;
 
@@ -1750,6 +1758,31 @@ begin
   if FileExists(TmpTar) then DeleteFile(TmpTar);
   if Result = TZ7Z_OK then
     AError := '';
+end;
+
+function TzExtractInContext(const APath, APassword: string;
+  const AIndices: TLongWordArray; const ADest: string;
+  out AError: string; AProgress: TZ7ZProgressSink): Integer;
+var
+  Ctx: TArchiveContext;
+  Err: string;
+begin
+  AError := '';
+  Result := TzOpenContext(APath, ExtractFileName(APath), APassword, nil, False,
+    APath, Ctx, Err);
+  if Result <> TZ7Z_OK then
+  begin
+    AError := Err;
+    Exit;
+  end;
+  try
+    { The open itself takes no progress sink, exactly like the plain extract job:
+      the extraction below is what the job's cancel sink watches. }
+    Result := TzExtract(Ctx.Archive, AIndices, ADest, APassword, AError,
+      AProgress);
+  finally
+    Ctx.Free;
+  end;
 end;
 
 initialization

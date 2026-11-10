@@ -162,6 +162,14 @@ function TzSmartTargetEntries(const APlan: TSmartPlan;
 function TzSmartTargetPath(const APlan: TSmartPlan;
   const AEntryName: string): string;
 
+{ Move the files staged under AStaging into ADest, stripping ARoot from their
+  staged paths ("AStaging/photos/a.jpg" -> "ADest/a.jpg"). AReplace is the caller
+  resolved "overwrite" policy: when a target already exists it is replaced only
+  if AReplace, otherwise the commit fails and leaves it alone. Directories are
+  created as needed; the caller deletes AStaging afterwards. }
+function TzCommitStagedTree(const AStaging, ADest, ARoot: string;
+  AReplace: Boolean): Boolean;
+
 implementation
 
 function DefaultExtractOptions(const ADestination: string): TExtractOptions;
@@ -520,6 +528,74 @@ begin
   begin
     Result[I] := AEntries[I];
     Result[I].Name := TzSmartTargetPath(APlan, AEntries[I].Name);
+  end;
+end;
+
+{ Every file under ADir, as paths relative to it with '/' separators. Collected
+  before anything moves, so renaming during the walk cannot skip entries. }
+procedure CollectStagedFiles(const ADir, ARel: string; AList: TStringList);
+var
+  SR: TSearchRec;
+  Rel: string;
+begin
+  if FindFirst(IncludeTrailingPathDelimiter(ADir) + '*', faAnyFile, SR) <> 0 then
+    Exit;
+  try
+    repeat
+      if (SR.Name = '.') or (SR.Name = '..') then Continue;
+      if ARel = '' then Rel := SR.Name else Rel := ARel + '/' + SR.Name;
+      if (SR.Attr and faDirectory) <> 0 then
+        CollectStagedFiles(IncludeTrailingPathDelimiter(ADir) + SR.Name, Rel,
+          AList)
+      else
+        AList.Add(Rel);
+    until FindNext(SR) <> 0;
+  finally
+    FindClose(SR);
+  end;
+end;
+
+function TzCommitStagedTree(const AStaging, ADest, ARoot: string;
+  AReplace: Boolean): Boolean;
+var
+  Files: TStringList;
+  I: Integer;
+  Orig, Rel, Src, Dst: string;
+begin
+  Result := False;
+  if (AStaging = '') or (ADest = '') then Exit;
+  Files := TStringList.Create;
+  try
+    CollectStagedFiles(ExcludeTrailingPathDelimiter(AStaging), '', Files);
+    for I := 0 to Files.Count - 1 do
+    begin
+      Orig := Files[I];
+      Rel := Orig;
+      if ARoot <> '' then
+      begin
+        { Only the entries below the stripped root belong in the destination. }
+        if Copy(Rel, 1, Length(ARoot) + 1) <> ARoot + '/' then Continue;
+        Rel := Copy(Rel, Length(ARoot) + 2, MaxInt);
+      end;
+      if Rel = '' then Continue;
+      { The file is still at its staged path; only its destination is stripped. }
+      Src := IncludeTrailingPathDelimiter(AStaging) +
+        StringReplace(Orig, '/', PathDelim, [rfReplaceAll]);
+      Dst := IncludeTrailingPathDelimiter(ADest) +
+        StringReplace(Rel, '/', PathDelim, [rfReplaceAll]);
+      if not ForceDirectories(ExtractFileDir(Dst)) then Exit;
+      if FileExists(Dst) then
+      begin
+        { The conflict policy was resolved before the extraction; "overwrite"
+          is the only one that lets this replace the existing file. }
+        if not AReplace then Exit;
+        if not DeleteFile(Dst) then Exit;
+      end;
+      if not RenameFile(Src, Dst) then Exit;
+    end;
+    Result := True;
+  finally
+    Files.Free;
   end;
 end;
 
