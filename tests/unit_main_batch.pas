@@ -23,6 +23,12 @@ begin
   else begin Inc(Fails); WriteLn(Format('FAIL %s: got %d want %d', [AMsg, AGot, AWant])); end;
 end;
 
+procedure EqStr(const AGot, AWant, AMsg: string);
+begin
+  if AGot = AWant then Inc(Passes)
+  else begin Inc(Fails); WriteLn(Format('FAIL %s: got [%s] want [%s]', [AMsg, AGot, AWant])); end;
+end;
+
 function TempDir(const AName: string): string;
 begin
   Result := IncludeTrailingPathDelimiter(GetTempDir(False)) + AName;
@@ -110,7 +116,7 @@ begin
       SetLength(Indices, 2);
       Indices[0] := 10;
       Indices[1] := 11;
-      Check(R.Resolve(0, Entries, Indices), 'chain: resolve has entries to extract');
+      Check(R.Resolve(0, Entries, Indices, R.Conflict), 'chain: resolve has entries to extract');
       EqInt(Ord(R[0].Stage), Ord(bsExtracting), 'chain: extracting stage');
       EqInt(R[0].KeptCount, 2, 'chain: both entries kept');
       EqInt(R[0].SkippedCount, 0, 'chain: nothing skipped');
@@ -181,7 +187,7 @@ begin
       SetLength(Indices, 2);
       Indices[0] := 3;
       Indices[1] := 4;
-      Check(R.Resolve(0, Entries, Indices), 'skip: the new entry is still extracted');
+      Check(R.Resolve(0, Entries, Indices, R.Conflict), 'skip: the new entry is still extracted');
       EqInt(R[0].KeptCount, 1, 'skip: existing entry kept out');
       EqInt(R[0].SkippedCount, 1, 'skip: one entry skipped');
       EqInt(R[0].RenamedCount, 0, 'skip: nothing renamed');
@@ -213,7 +219,7 @@ begin
       Entries[0] := OneEntry('dup.txt', False);
       SetLength(Indices, 1);
       Indices[0] := 7;
-      Check(R.Resolve(0, Entries, Indices), 'rename: entry is still extracted');
+      Check(R.Resolve(0, Entries, Indices, R.Conflict), 'rename: entry is still extracted');
       EqInt(R[0].KeptCount, 1, 'rename: entry kept');
       EqInt(R[0].RenamedCount, 1, 'rename: existing file moved aside');
       Check(not FileExists(Dir + 'dup.txt'),
@@ -244,7 +250,7 @@ begin
       Entries[0] := OneEntry('only.txt', False);
       SetLength(Indices, 1);
       Indices[0] := 9;
-      Check(not R.Resolve(0, Entries, Indices),
+      Check(not R.Resolve(0, Entries, Indices, R.Conflict),
         'allskip: nothing to extract means no job');
       EqInt(Ord(R[0].Stage), Ord(bsDone),
         'allskip: skipping everything is a successful archive, not a failure');
@@ -292,12 +298,124 @@ begin
       Entries[0] := OneEntry('x.txt', False);
       SetLength(Indices, 1);
       { Resolving before the listing was noted must not move the item. }
-      Check(not R.Resolve(0, Entries, Indices), 'stage: resolve before listing is refused');
+      Check(not R.Resolve(0, Entries, Indices, R.Conflict), 'stage: resolve before listing is refused');
       EqInt(Ord(R[0].Stage), Ord(bsPending), 'stage: item stays pending');
       { Extracting without resolving is refused too. }
       R.StartNext;
       R.NoteExtracted(0, 0, '');
       EqInt(Ord(R[0].Stage), Ord(bsListing), 'stage: extract note before extracting is ignored');
+    finally R.Free; end;
+  finally L.Free; end;
+end;
+
+procedure TestSmartLanding;
+var
+  L: TStringList;
+  R: TBatchRun;
+  Idx: Integer;
+  Entries: TExtractEntryArray;
+  Indices: TLongWordArray;
+begin
+  L := TStringList.Create;
+  try
+    L.Add('/tmp/a/photos.zip');
+    L.Add('/tmp/b/docs.tar.gz');
+
+    { Smart with an empty destination: each archive lands next to itself. }
+    R := TBatchRun.Create(L, '', ecOverwrite, bmSmart);
+    try
+      Idx := R.StartNext;
+      EqInt(Idx, 0, 'smart: first archive');
+      R.NoteListed(0, 2);
+      SetLength(Entries, 2);
+      Entries[0] := OneEntry('photos/a.jpg', False);
+      Entries[1] := OneEntry('photos/sub/b.jpg', False);
+      SetLength(Indices, 2);
+      Indices[0] := 0;
+      Indices[1] := 1;
+      Check(R.Resolve(0, Entries, Indices, ecOverwrite),
+        'smart: resolve has something to extract');
+      EqStr(R[0].Dest, IncludeTrailingPathDelimiter('/tmp/a'),
+        'smart: lands in the archive folder');
+      EqStr(R[0].Root, 'photos', 'smart: strips the root folder');
+      Check(R[0].Layout = slStripOneRoot, 'smart: layout strips one root');
+      EqInt(R[0].KeptCount, 2, 'smart: both entries kept');
+      EqInt(Length(R.CurrentIndices), 2, 'smart: two indices requested');
+    finally R.Free; end;
+
+    { Smart with a shared destination: everything strips into it. }
+    R := TBatchRun.Create(L, '/tmp/out', ecOverwrite, bmSmart);
+    try
+      R.StartNext;
+      R.NoteListed(0, 1);
+      SetLength(Entries, 1);
+      Entries[0] := OneEntry('a.txt', False);
+      SetLength(Indices, 1);
+      Indices[0] := 5;
+      Check(R.Resolve(0, Entries, Indices, ecOverwrite), 'smart: shared dest resolves');
+      EqStr(R[0].Dest, IncludeTrailingPathDelimiter('/tmp/out'),
+        'smart: shared destination');
+    finally R.Free; end;
+
+    { Folder mode: one named folder per archive below the destination. }
+    R := TBatchRun.Create(L, '/tmp/out', ecOverwrite, bmFolder);
+    try
+      R.StartNext;
+      R.NoteListed(0, 1);
+      SetLength(Entries, 1);
+      Entries[0] := OneEntry('a.txt', False);
+      SetLength(Indices, 1);
+      Indices[0] := 5;
+      Check(R.Resolve(0, Entries, Indices, ecOverwrite), 'folder mode: resolves');
+      EqStr(R[0].Dest, '/tmp/out/photos/', 'folder mode: named folder');
+    finally R.Free; end;
+
+    { Plain mode keeps the historical shared destination. }
+    R := TBatchRun.Create(L, '/tmp/out', ecOverwrite);
+    try
+      Check(R.Mode = bmPlain, 'plain: default mode');
+      R.StartNext;
+      R.NoteListed(0, 1);
+      SetLength(Entries, 1);
+      Entries[0] := OneEntry('a.txt', False);
+      SetLength(Indices, 1);
+      Indices[0] := 5;
+      Check(R.Resolve(0, Entries, Indices, ecOverwrite), 'plain: resolves');
+      EqStr(R[0].Dest, '/tmp/out', 'plain: destination as given');
+    finally R.Free; end;
+
+    { Smart drops junk and directory entries; only real files are requested. }
+    R := TBatchRun.Create(L, '/tmp/out', ecSkip, bmSmart);
+    try
+      R.StartNext;
+      R.NoteListed(0, 3);
+      SetLength(Entries, 3);
+      Entries[0] := OneEntry('photos/a.jpg', False);
+      Entries[1] := OneEntry('__MACOSX/._a.jpg', False);
+      Entries[2] := OneEntry('photos/', True);
+      SetLength(Indices, 3);
+      Indices[0] := 0;
+      Indices[1] := 1;
+      Indices[2] := 2;
+      Check(R.Resolve(0, Entries, Indices, ecSkip), 'smart: junk run still extracts');
+      EqInt(R[0].KeptCount, 1, 'smart: only the real file kept');
+      EqInt(Length(R.CurrentIndices), 1, 'smart: one index requested');
+      EqInt(R.CurrentIndices[0], 0, 'smart: the real file index');
+    finally R.Free; end;
+
+    { Nothing writable: a done step, not a failure. }
+    R := TBatchRun.Create(L, '/tmp/out', ecSkip, bmSmart);
+    try
+      R.StartNext;
+      R.NoteListed(0, 1);
+      SetLength(Entries, 1);
+      Entries[0] := OneEntry('__MACOSX/x', False);
+      SetLength(Indices, 1);
+      Indices[0] := 1;
+      Check(not R.Resolve(0, Entries, Indices, ecSkip),
+        'smart junk only: nothing to extract');
+      EqInt(Ord(R[0].Stage), Ord(bsDone), 'smart junk only: done stage');
+      EqInt(R.DoneCount, 1, 'smart junk only: counted as done');
     finally R.Free; end;
   finally L.Free; end;
 end;
@@ -312,6 +430,7 @@ begin
   TestAllSkippedIsDone;
   TestCancelItem;
   TestWrongStageIgnored;
+  TestSmartLanding;
   WriteLn;
   WriteLn(Format('PASSED %d, FAILED %d', [Passes, Fails]));
   if Fails <> 0 then Halt(1);

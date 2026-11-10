@@ -5775,17 +5775,22 @@ begin
   end;
   SetLength(Entries, N);
   SetLength(Indices, N);
-  { Ticket 04's entry-level rules, applied against this run's destination. }
-  if not FBatchRun.Resolve(Idx, Entries, Indices) then
+  { Ticket 04's entry-level rules, applied against this archive's landing place. }
+  if not FBatchRun.Resolve(Idx, Entries, Indices, FBatchRun.Conflict) then
   begin
     { Everything collided and the policy skipped it: nothing to write. }
     FBatchNextPending := True;
     Exit;
   end;
   P := FBatchRun[Idx].Path;
-  J := TzNewExtractJob(P, ExtractFileName(P),
-    RememberedPassword(TzPasswordStore, P), FBatchDest,
-    FBatchRun.CurrentIndices);
+  if FBatchRun.Mode = bmSmart then
+    J := TzNewSmartExtractJob(P, ExtractFileName(P),
+      RememberedPassword(TzPasswordStore, P), FBatchRun[Idx].Dest,
+      FBatchRun[Idx].Root, FBatchRun.CurrentIndices)
+  else
+    J := TzNewExtractJob(P, ExtractFileName(P),
+      RememberedPassword(TzPasswordStore, P), FBatchRun[Idx].Dest,
+      FBatchRun.CurrentIndices);
   { A different job starts here, so this one is finished before the shared tail
     could see it again. }
   AJob.Free;
@@ -6926,6 +6931,7 @@ procedure TMainForm.StartExtractFrom(AArchives: TStrings);
 var
   Dest, NewDest: string;
   O: TExtractOptions;
+  Mode: TBatchMode;
 begin
   if (AArchives = nil) or (AArchives.Count = 0) then Exit;
   if FBatchRun <> nil then
@@ -6947,10 +6953,16 @@ begin
   FBatchDest := IncludeTrailingPathDelimiter(NewDest);
   FBatchOpenAfter := O.OpenAfter or FSettings.OpenAfterExtract;
   FBatchDeleteAfter := O.DeleteArchiveAfter;
+  if O.SmartExtract then
+    Mode := bmSmart
+  else if O.SmartFolder then
+    Mode := bmFolder
+  else
+    Mode := bmPlain;
   FreeAndNil(FBatchTally);
   FBatchTally := TJobController.Create;
   FBatchTally.BeginBatch;
-  FBatchRun := TBatchRun.Create(AArchives, FBatchDest, O.Conflict);
+  FBatchRun := TBatchRun.Create(AArchives, FBatchDest, O.Conflict, Mode);
   if FBatchRun.Count = FBatchRun.SkippedNonArchiveCount then
   begin
     FreeAndNil(FBatchRun);

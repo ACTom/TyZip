@@ -31,6 +31,14 @@ type
     bsSkipped      { not an archive: never started }
   );
 
+  { Where each archive's files land.
+    bmPlain: one shared destination (the historical behaviour).
+    bmFolder: a folder named after each archive, below the shared destination.
+    bmSmart: the structure decides (tzip.extract.TzSmartPlan): one root folder
+             is stripped into the destination, a single file lands directly,
+             several roots get a folder named after the archive. }
+  TBatchMode = (bmPlain, bmFolder, bmSmart);
+
   TBatchItem = record
     Path: string;
     Stage: TBatchStage;
@@ -39,6 +47,10 @@ type
     SkippedCount: Integer;   { entries the conflict policy leaves alone }
     RenamedCount: Integer;   { existing files moved aside by "keep both" }
     Error: string;
+    Dest: string;            { where this archive's files go }
+    Root: string;            { bmSmart only: top-level segment to strip }
+    Layout: TSmartLayout;    { bmSmart only: the plan that produced Dest }
+    Conflict: TExtractConflict; { the policy used for this archive }
   end;
 
   TBatchRun = class
@@ -46,6 +58,7 @@ type
     FItems: array of TBatchItem;
     FDest: string;
     FConflict: TExtractConflict;
+    FMode: TBatchMode;
     FIndex: Integer;          { the item that is listing/extracting, -1 = none }
     FStopRequested: Boolean;
     FIndices: TLongWordArray; { entry indices for the active extraction }
@@ -59,18 +72,19 @@ type
     function GetRenamedEntryCount: Integer;
   public
     constructor Create(const AArchives: TStrings; const ADest: string;
-      AConflict: TExtractConflict);
+      AConflict: TExtractConflict; AMode: TBatchMode = bmPlain);
 
     { The archive whose entries should be listed next, or -1 when the chain is
       stopped, finished, or an archive is already in flight. }
     function StartNext: Integer;
     { The listing for AIndex arrived with AEntryCount entries. }
     procedure NoteListed(AIndex, AEntryCount: Integer);
-    { Resolve AIndex's conflicts against the destination. AEntries are the
-      archive's entries and AIndices their engine indices, in the same order.
+    { Resolve AIndex's landing place and conflicts. AEntries are the archive's
+      entries and AIndices their engine indices, in the same order. AConflict is
+      the policy for THIS archive (the Finder smart service asks per archive).
       Answers True when there is something to extract. }
     function Resolve(AIndex: Integer; const AEntries: TExtractEntryArray;
-      const AIndices: TLongWordArray): Boolean;
+      const AIndices: TLongWordArray; AConflict: TExtractConflict): Boolean;
     procedure NoteExtracted(AIndex, AResult: Integer; const AError: string);
     procedure NoteListingFailed(AIndex: Integer; const AError: string);
     { The user cancelled while AIndex was listing/extracting: it is not a failure
@@ -94,18 +108,20 @@ type
     property RenamedEntryCount: Integer read GetRenamedEntryCount;
     property Destination: string read FDest;
     property Conflict: TExtractConflict read FConflict;
+    property Mode: TBatchMode read FMode;
   end;
 
 implementation
 
 constructor TBatchRun.Create(const AArchives: TStrings; const ADest: string;
-  AConflict: TExtractConflict);
+  AConflict: TExtractConflict; AMode: TBatchMode);
 var
   I: Integer;
 begin
   inherited Create;
   FDest := ADest;
   FConflict := AConflict;
+  FMode := AMode;
   FIndex := -1;
   FStopRequested := False;
   if AArchives = nil then Exit;
@@ -229,19 +245,67 @@ begin
 end;
 
 function TBatchRun.Resolve(AIndex: Integer; const AEntries: TExtractEntryArray;
-  const AIndices: TLongWordArray): Boolean;
+  const AIndices: TLongWordArray; AConflict: TExtractConflict): Boolean;
 var
   Keep: TExtractEntryKeep;
+  Targets: TExtractEntryArray;
+  Plan: TSmartPlan;
+  Base: string;
   Collisions, I, N: Integer;
   Kept, Skipped: Integer;
 begin
   Result := False;
   if (AIndex < 0) or (AIndex > High(FItems)) then Exit;
   if FItems[AIndex].Stage <> bsListing then Exit;
-  { Ticket 04's entry-level semantics: skip by not requesting the entry, rename by
-    moving aside only the existing file that entry would replace. Files elsewhere
-    in the destination are never touched. }
-  Collisions := ResolveExtractConflicts(FDest, AEntries, FConflict, Keep);
+  FItems[AIndex].Conflict := AConflict;
+
+  { The base destination: a shared folder, or (for the Finder smart service) the
+    folder each archive lives in. }
+  Base := FDest;
+  if (FMode = bmSmart) and (Base = '') then
+    Base := ExtractFileDir(FItems[AIndex].Path);
+
+  case FMode of
+    bmFolder:
+      FItems[AIndex].Dest := IncludeTrailingPathDelimiter(Base) +
+        SmartFolderName(FItems[AIndex].Path) + PathDelim;
+    bmSmart:
+      begin
+        Plan := TzSmartPlan(FItems[AIndex].Path, Base, AEntries);
+        FItems[AIndex].Dest := Plan.Dest;
+        FItems[AIndex].Root := Plan.Root;
+        FItems[AIndex].Layout := Plan.Layout;
+        if Plan.Layout = slNothing then
+        begin
+          { Nothing to write (empty archive, or only macOS junk): a completed
+            step, not a failure. }
+          FItems[AIndex].Stage := bsDone;
+          FItems[AIndex].KeptCount := 0;
+          FItems[AIndex].SkippedCount := 0;
+          SetLength(FIndices, 0);
+          Exit;
+        end;
+      end;
+  else
+    FItems[AIndex].Dest := FDest;
+  end;
+
+  if FMode = bmSmart then
+  begin
+    { Work on the final, stripped target paths so a collision is judged on the
+      file the user will actually see. }
+    Targets := TzSmartTargetEntries(Plan, AEntries);
+    Collisions := ResolveExtractConflicts(FItems[AIndex].Dest, Targets,
+      AConflict, Keep);
+    { Junk, directory entries and the stripped root itself are never handed to
+      the engine; an empty target marks them. }
+    for I := 0 to High(Keep) do
+      if Targets[I].Name = '' then Keep[I] := False;
+  end
+  else
+    Collisions := ResolveExtractConflicts(FItems[AIndex].Dest, AEntries,
+      AConflict, Keep);
+
   Kept := 0;
   Skipped := 0;
   N := 0;
@@ -263,7 +327,7 @@ begin
   SetLength(FIndices, N);
   FItems[AIndex].KeptCount := Kept;
   FItems[AIndex].SkippedCount := Skipped;
-  if FConflict = ecRename then
+  if AConflict = ecRename then
     { Of the collisions, the ones that were kept are the ones moved aside. }
     FItems[AIndex].RenamedCount := Collisions - Skipped
   else
