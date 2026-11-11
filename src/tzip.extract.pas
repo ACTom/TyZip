@@ -152,6 +152,10 @@ type
   '__MACOSX' segment, or an entry named '.DS_Store'. }
 function TzIsJunkEntry(const AEntryName: string): Boolean;
 
+{ True when AName names a macOS package (a .app, .framework, ...): the bundle is
+  one item and must keep its name, so smart extraction never flattens it. }
+function TzIsPackageName(const AName: string): Boolean;
+
 { The layout smart extraction uses for an archive whose entries are AEntries.
   ADest is the base destination folder. }
 function TzSmartPlan(const AArchivePath, ADest: string;
@@ -478,6 +482,24 @@ begin
     end;
 end;
 
+function TzIsPackageName(const AName: string): Boolean;
+const
+  PackageExts: array[0..15] of string = ('.app', '.framework', '.bundle',
+    '.plugin', '.kext', '.appex', '.xpc', '.xcarchive', '.xcframework',
+    '.playground', '.xcodeproj', '.xcworkspace', '.dsym', '.lproj',
+    '.prefpane', '.systemextension');
+var
+  E: string;
+  I: Integer;
+begin
+  Result := False;
+  E := LowerCase(ExtractFileExt(AName));
+  if E = '' then Exit;
+  for I := 0 to High(PackageExts) do
+    if E = PackageExts[I] then
+      Exit(True);
+end;
+
 function TzSmartPlan(const AArchivePath, ADest: string;
   const AEntries: TExtractEntryArray): TSmartPlan;
 var
@@ -519,8 +541,16 @@ begin
       Result.Dest := Base;
       if RootIsDir[0] = '1' then
       begin
-        Result.Layout := slStripOneRoot;
-        Result.Root := Roots[0];
+        { A lone folder is usually redundant nesting -- except a macOS package,
+          which is one item: flattening "a.app" would leave a bare Contents/
+          folder instead of an app. }
+        if TzIsPackageName(Roots[0]) then
+          Result.Layout := slDirect
+        else
+        begin
+          Result.Layout := slStripOneRoot;
+          Result.Root := Roots[0];
+        end;
       end
       else
         Result.Layout := slDirect;

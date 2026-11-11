@@ -474,6 +474,34 @@ begin
   end;
 end;
 
+procedure TestSmartPackageRoot;
+var
+  P: TSmartPlan;
+  T: TExtractEntryArray;
+begin
+  { A single top-level folder is flattened -- unless it is a macOS package:
+    a ZIP holding a.app must keep a.app, not dump its insides. }
+  P := TzSmartPlan('/tmp/a.zip', '/tmp/out',
+    EntriesOf(['a.app', 'a.app/Contents', 'a.app/Contents/Info.plist'],
+      [True, True, False]));
+  Check(P.Layout = slDirect, 'smart: a single .app root is not stripped');
+  EqStr(TzSmartTargetPath(P, 'a.app/Contents/Info.plist'),
+    'a.app/Contents/Info.plist', 'smart: the bundle keeps its name');
+  T := TzSmartTargetEntries(P,
+    EntriesOf(['a.app/Contents/Info.plist'], [False]));
+  EqStr(T[0].Name, 'a.app/Contents/Info.plist',
+    'smart entries: bundle path kept');
+
+  P := TzSmartPlan('/tmp/f.zip', '/tmp/out',
+    EntriesOf(['Foo.framework/Versions/A/Foo'], [False]));
+  Check(P.Layout = slDirect, 'smart: a framework root is kept');
+
+  { A plain single folder still flattens: that is the whole point. }
+  P := TzSmartPlan('/tmp/photos.zip', '/tmp/out',
+    EntriesOf(['photos', 'photos/a.jpg'], [True, False]));
+  Check(P.Layout = slStripOneRoot, 'smart: a plain folder still flattens');
+end;
+
 procedure TestSmartDirectoryTargets;
 var
   P: TSmartPlan;
@@ -606,6 +634,7 @@ begin
   TestQuickDestinations;
   TestSmartPlan;
   TestSmartTargets;
+  TestSmartPackageRoot;
   TestSmartModes;
   TestPartialExtraction;
   TestSmartDirectoryTargets;
