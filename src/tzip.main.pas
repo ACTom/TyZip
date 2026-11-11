@@ -265,6 +265,16 @@ type
     FOverlaySpin: TTyActivityIndicator;
     FOverlayCancel: TTyButton;
     FOverlayPause: TTyButton;
+    { A cold-start Finder tool service: no main window, only the small progress
+      window, and the process quits when the run ends. }
+    FServiceMode: Boolean;
+    FServiceProgress: TServiceProgressForm;
+    { When this process started: a service arriving moments later was the reason
+      macOS launched it, so the main window must not be shown. }
+    FLaunchTick: QWord;
+    { The process was started by "Open with TyZip" for a file whose extension is
+      not ours; its path must be forced through the archive view. }
+    FStartupAsArchive: Boolean;
     FOverlayReveal: TTimer;
     FOverlayShown: Boolean;
     FOverlayDeterminate: Boolean;
@@ -615,6 +625,8 @@ type
     procedure HideOverlay;
     procedure OverlayCancelClick(Sender: TObject);
     procedure OverlayPauseClick(Sender: TObject);
+    { Free the service progress window and quit, once nothing is running. }
+    procedure MaybeFinishService;
     procedure LayoutOverlay;
     procedure ContentResize(Sender: TObject);
     procedure FilterTimerTick(Sender: TObject);
@@ -766,6 +778,7 @@ procedure TzDeleteTempRoot(const AStatedRoot: string); forward;
 constructor TMainForm.Create(AOwner: TComponent);
 begin
   inherited CreateNew(AOwner);
+  FLaunchTick := GetTickCount64;
   { No form-level scrolling.  Every pane is aligned to the client area, and an
     absolutely positioned child (the welcome block or the busy card) must not be
     able to give the form an auto-scroll range: one wheel tick would then shift
@@ -955,11 +968,18 @@ begin
   begin
     FFormats := TzLoadFormats;
     StartupPath := '';
-    if (ParamCount >= 1) and (ParamStr(1) <> '') and
+    FStartupAsArchive := False;
+    if (ParamCount >= 2) and (ParamStr(1) = '--open-as-archive') and
+       (ParamStr(2) <> '') then
+    begin
+      FStartupAsArchive := True;
+      StartupPath := ExpandFileName(ParamStr(2));
+    end
+    else if (ParamCount >= 1) and (ParamStr(1) <> '') and
        (Copy(ParamStr(1), 1, 2) <> '--') then
       StartupPath := ExpandFileName(ParamStr(1));
     if (StartupPath <> '') and FileExists(StartupPath) and
-       TzIsArchiveName(StartupPath) then
+       (FStartupAsArchive or TzIsArchiveName(StartupPath)) then
     begin
       { Opening an archive is the whole request: no folder view first.  FFsPath
         still gets the archive's folder so the extract/save dialogs have a
@@ -5126,6 +5146,18 @@ begin
     FOverlayPause.Enabled := ACancelable;
     FOverlayPause.Caption := rsDlgPause;
   end;
+  { The main window is not on screen for a cold-start service: the same task
+    sentence and the same pause/cancel reach the small window instead. }
+  if FServiceMode then
+  begin
+    if FServiceProgress = nil then
+    begin
+      FServiceProgress := TServiceProgressForm.Create(Self);
+      FServiceProgress.OnPauseClick := @OverlayPauseClick;
+      FServiceProgress.OnCancelClick := @OverlayCancelClick;
+    end;
+    FServiceProgress.SetTask(ATitle, ADetail, ADeterminate);
+  end;
   FOverlayProgressSeen := False;
   UpdateOverlayStats(0, 0);
   { Startup: reveal at once.  The deferred reveal below exists to avoid a flash
@@ -5281,6 +5313,8 @@ var
   Pct: Integer;
   Line: string;
 begin
+  if FServiceProgress <> nil then
+    FServiceProgress.SetProgress(ADone, ATotal);
   if (FOverlayBar = nil) or (not FOverlayShown) then Exit;
   if (FJob <> nil) and FJob.CancelRequested then Exit;
   if (FJob <> nil) and FJob.Paused then
@@ -5353,6 +5387,7 @@ begin
   FOverlayCancel.Caption := rsDlgCancelling;
   FOverlayPause.Enabled := False;
   FOverlayDetail.Caption := rsDlgCancelling;
+  if FServiceProgress <> nil then FServiceProgress.SetCancelling;
 end;
 
 procedure TMainForm.OverlayPauseClick(Sender: TObject);
@@ -5370,6 +5405,20 @@ begin
     FOverlayPause.Caption := rsDlgResume;
     FOverlayDetail.Caption := rsDlgPaused;
   end;
+  if FServiceProgress <> nil then FServiceProgress.SetPaused(FJob.Paused);
+end;
+
+procedure TMainForm.MaybeFinishService;
+begin
+  if not FServiceMode then Exit;
+  { A batch may still be handing one archive over to the next; only a fully idle
+    form ends the process. }
+  if (FJob <> nil) or (FJobs.QueuedCount > 0) or (FBatchRun <> nil) then Exit;
+  FServiceMode := False;
+  FreeAndNil(FServiceProgress);
+  { The service was the only reason this process exists: do not leave a dock
+    icon and no window behind. }
+  Application.Terminate;
 end;
 
 { ---------------------------------------------------------------------------
@@ -5401,10 +5450,14 @@ begin
   { The summary is a modal dialog, and this runs inside the job timer's callback.
     Opening it there re-entered the message loop from a timer event (windows could
     stack, and the paint/settle order became whichever timer fired first). Compose
-    it now, show it once the callback has returned. }
-  FPendingBatchSummary := Msg;
-  FPendingBatchHadFailures := FJobs.BatchHadFailures;
-  Application.QueueAsyncCall(@ShowPendingBatchSummary, 0);
+    it now, show it once the callback has returned. A service quits on completion,
+    so it has no use for a summary dialog. }
+  if not FServiceMode then
+  begin
+    FPendingBatchSummary := Msg;
+    FPendingBatchHadFailures := FJobs.BatchHadFailures;
+    Application.QueueAsyncCall(@ShowPendingBatchSummary, 0);
+  end;
   FJobs.EndBatch;
   { The extraction wrote into the folder being shown, so the new folders have to
     appear without the user pressing F5. Done once at the end of the batch rather
@@ -5672,6 +5725,7 @@ begin
   end;
   if (not FCompletionMsgSet) or (FStatus.SimpleText = '') then UpdateStatus;
   RefreshActions;
+  MaybeFinishService;
 end;
 
 function TMainForm.HandleJobList(AJob: TZJob; APurpose: TZJobPurpose;
@@ -6599,7 +6653,7 @@ begin
     NavigateFs(P)
   else if FileExists(P) then
   begin
-    if TzIsArchiveName(P) then
+    if FStartupAsArchive or TzIsArchiveName(P) then
       { Name the folder explicitly. An empty OpenedFromFs makes the engine fall
         back to FFsPath, which at this point is still whatever the window last
         browsed -- so a double-clicked archive in ~/Downloads produced a
@@ -6948,7 +7002,7 @@ begin
     Summary := FBatchTally.SummaryText;
     HadFailures := FBatchTally.BatchHadFailures;
     FreeAndNil(FBatchTally);
-    if Summary <> '' then
+    if (Summary <> '') and (not FServiceMode) then
     begin
       FPendingBatchSummary := Summary;
       FPendingBatchHadFailures := HadFailures;
@@ -6961,6 +7015,7 @@ begin
   FBatchOpenAfter := False;
   FBatchDeleteAfter := False;
   UpdateStatus;
+  MaybeFinishService;
 end;
 
 procedure TMainForm.StartExtractFrom(AArchives: TStrings);
@@ -7585,18 +7640,32 @@ function TMainForm.HandleService(ARequest: TServiceRequest;
 var
   I: Integer;
   Paths, Archives: TStringList;
-  First, Dir: string;
+  First: string;
 begin
   Result := '';
   if (APaths = nil) or (APaths.Count = 0) then Exit;
-
-  { The window may not be open yet when Finder calls in. }
-  if not Visible then Show;
-  Application.BringToFront;
   { A cold "Open With" can arrive before the window is built: the handlers below
     assume lists and a context exist. Answer with no progress text instead of
     half-running a command. }
   if not FReady then Exit;
+
+  { A tool service that arrives moments after launch has no user behind it: macOS
+    started the app to run the service and would otherwise show the window first.
+    Hide it and end the process when the run finishes. A TyZip the user already
+    has open -- or one that has been up for a while -- is left untouched. "Open
+    with TyZip" needs its window by definition. }
+  if (ARequest <> srOpen) and (FCtx = nil) and
+     (GetTickCount64 - FLaunchTick <= 15000) then
+    FServiceMode := True;
+  if FServiceMode then
+  begin
+    if Visible then Hide;
+  end
+  else
+  begin
+    if not Visible then Show;
+    Application.BringToFront;
+  end;
 
   Paths := TStringList.Create;
   Archives := TStringList.Create;
@@ -7623,6 +7692,26 @@ begin
         begin
           DoCreateEachArchive(Paths);
           Result := Format(rsSvcCompressingFmt, [Paths.Count]);
+        end;
+
+      srOpen:
+        begin
+          { "Open with TyZip" is the archive-view action for any file, the same
+            logic as "Open as Archive": a ZIP-based document or a self-extracting
+            EXE is inspected through the unwrapping context. A TyZip that was
+            already on screen opens a window of its own, the way opening a
+            document twice does; a cold launch uses this window. Only the first
+            selection opens: one window, one archive. }
+          if Paths.Count > 0 then
+          begin
+            if (FCtx <> nil) or (GetTickCount64 - FLaunchTick > 15000) then
+              TzOpenInNewInstanceAsArchive(Paths[0])
+            else
+              StartOpenArchive(Paths[0], ExtractFileName(Paths[0]), nil, False,
+                ExcludeTrailingPathDelimiter(ExtractFileDir(Paths[0])), False,
+                jpOpenBrowse, '');
+            Result := rsSvcOpening;
+          end;
         end;
 
       srExtractDialog, srExtractHere, srExtractToFolder, srSmartExtract:
@@ -7655,14 +7744,10 @@ begin
               end;
           else
             begin
-              { "Extract to Folder" used to run exactly the same code as "Extract
-                Here", because the ask flag was never read: the user chose a menu
-                item that promised a folder and got the archives' own folders.
-                Ask for the folder, then extract there. }
-              Dir := FFsPath;
-              if not TySelectDirectory(rsDlgExtractTitle, '', Dir) then Exit;
-              if Dir = '' then Exit;
-              BatchExtract(Archives, IncludeTrailingPathDelimiter(Dir));
+              { "Extract to <name> Folder" creates one folder named after each
+                archive beside it and extracts into that folder -- no picker:
+                the menu item promises the same-name folder. }
+              BatchExtractToOwnFolders(Archives);
               Result := rsSvcExtracting;
             end;
           end;
@@ -7674,6 +7759,9 @@ begin
   finally
     Archives.Free;
     Paths.Free;
+    { A dialog the user cancelled started no job: the one-shot service is over.
+      When a job did start this sees FJob set and does nothing. }
+    MaybeFinishService;
   end;
 end;
 {$ENDIF}

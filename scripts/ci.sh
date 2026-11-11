@@ -56,7 +56,7 @@ import json, sys
 d = json.load(open(sys.argv[1]))
 names = [s.get('NSMessage') for s in d.get('NSServices', [])]
 want = ['compressDialog', 'extractDialog', 'extractHere', 'extractToFolder',
-        'smartExtract', 'compressHere', 'compressEach']
+        'smartExtract', 'compressHere', 'compressEach', 'openService']
 if names != want:
     print('NSServices:', names, file=sys.stderr)
     sys.exit(1)

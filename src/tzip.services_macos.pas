@@ -30,6 +30,7 @@ type
     srExtractDialog,    { "Extract…"          -- opens the extract dialog }
     srExtractHere,      { "Extract Here"      -- next to the archive }
     srExtractToFolder,  { "Extract to <name>/" -- into a folder named after it }
+    srOpen,             { "Open with TyZip"     -- any file, as an archive }
     srSmartExtract,     { "Smart Extract"     -- layout decided by the archive }
     srCompressHere,     { "Add to <name>.7z"  -- default format, no dialog }
     srCompressEach      { "Add Each to a Separate Archive" }
@@ -67,6 +68,8 @@ type
       error: NSError); message 'extractHere:userData:error:';
     procedure svcExtractToFolder(pboard: NSPasteboard; userData: NSString;
       error: NSError); message 'extractToFolder:userData:error:';
+    procedure svcOpen(pboard: NSPasteboard; userData: NSString;
+      error: NSError); message 'openService:userData:error:';
     procedure svcSmartExtract(pboard: NSPasteboard; userData: NSString;
       error: NSError); message 'smartExtract:userData:error:';
     procedure svcCompressHere(pboard: NSPasteboard; userData: NSString;
@@ -194,6 +197,12 @@ procedure TTyServiceProvider.svcExtractToFolder(pboard: NSPasteboard;
   userData: NSString; error: NSError);
 begin
   ReplyToPasteboard(RunService(srExtractToFolder, pboard));
+end;
+
+procedure TTyServiceProvider.svcOpen(pboard: NSPasteboard;
+  userData: NSString; error: NSError);
+begin
+  ReplyToPasteboard(RunService(srOpen, pboard));
 end;
 
 procedure TTyServiceProvider.svcSmartExtract(pboard: NSPasteboard;

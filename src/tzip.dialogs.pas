@@ -17,6 +17,7 @@ uses
   tyControls.Panel, tyControls.TyLabel, tyControls.Edit,
   tyControls.ComboBox, tyControls.CheckBox, tyControls.SpinEdit,
   tyControls.Memo,
+  tyControls.Button, tyControls.ProgressBar,
   tyControls.PageControl, tyControls.TabSheet,
   tzip.platform,
   tyControls.Dialogs, tyControls.Dialogs.SelectPath,
@@ -246,6 +247,32 @@ function ShowSearchDialog(AOwner: TForm; var AOptions: TSearchOptions): Boolean;
 function PromptForText(AOwner: TComponent; const ACaption, APrompt,
   ADefault: string; out AText: string): Boolean;
 
+{ The whole visible UI of a cold-start Finder service: a small progress window
+  with Pause and Cancel. The owner decides what the buttons do, so the same job
+  pause/cancel as the in-window overlay card is used. }
+type
+  TServiceProgressForm = class(TZipDialog)
+  private
+    FTitle: TTyLabel;
+    FDetail: TTyLabel;
+    FBar: TTyProgressBar;
+    FPause: TTyButton;
+    FCancel: TTyButton;
+    FDetailText: string;
+    FOnPause: TNotifyEvent;
+    FOnCancel: TNotifyEvent;
+    procedure PauseClick(Sender: TObject);
+    procedure CancelClick(Sender: TObject);
+  public
+    constructor Create(AOwner: TComponent); reintroduce;
+    procedure SetTask(const ATitle, ADetail: string; ADeterminate: Boolean);
+    procedure SetProgress(ADone, ATotal: QWord);
+    procedure SetPaused(APaused: Boolean);
+    procedure SetCancelling;
+    property OnPauseClick: TNotifyEvent read FOnPause write FOnPause;
+    property OnCancelClick: TNotifyEvent read FOnCancel write FOnCancel;
+  end;
+
 implementation
 
 procedure TZipDialog.ScrollGuardTick(Sender: TObject);
@@ -255,6 +282,10 @@ end;
 
 procedure TZipDialog.DoShow;
 begin
+  { A service may open a dialog before the main window is ever shown: centering
+    on an invisible owner would put the dialog at an arbitrary off-screen spot. }
+  if (Owner is TForm) and (not TForm(Owner).Visible) then
+    Position := poScreenCenter;
   inherited DoShow;
   TzGuardFormScroll(Self);
   if FScrollGuardTimer = nil then
@@ -1750,6 +1781,102 @@ begin
   try
     D.ShowModal;
   finally D.Free; end;
+end;
+
+{ ---------------------------------------------------------------------------
+  Finder service progress
+  --------------------------------------------------------------------------- }
+
+constructor TServiceProgressForm.Create(AOwner: TComponent);
+var
+  Body: TTyPanel;
+  Pad, CW, Y: Integer;
+begin
+  inherited CreateNew(AOwner);
+  AutoScroll := False;
+  Caption := rsAppName;
+  Position := poScreenCenter;
+  Pad := Px(cPad);
+  CW := Px(420);
+  Body := NewBody(Self);
+  FTitle := NewLabel(Body, '', Pad, Pad, CW - Pad * 2, Px(cLabelH));
+  FBar := TTyProgressBar.Create(Body);
+  FBar.Parent := Body;
+  FBar.Left := Pad;
+  FBar.Top := Pad + Px(cLabelH) + Px(cGap);
+  FBar.Width := CW - Pad * 2;
+  FBar.Height := Px(10);
+  FBar.Min := 0;
+  FBar.Max := 100;
+  FBar.Position := 0;
+  FBar.BarShowText := False;
+  FDetail := NewLabel(Body, '', Pad, FBar.Top + Px(10) + Px(cGap),
+    CW - Pad * 2, Px(cLabelH));
+  Y := FDetail.Top + Px(cLabelH) + Px(cGap);
+  FPause := NewBodyButton(Body, rsDlgPause, Pad, Y, Px(96), Px(cBodyBtnH),
+    @PauseClick);
+  FCancel := NewBodyButton(Body, rsDlgCancel, Pad + Px(96) + Px(cGap), Y,
+    Px(96), Px(cBodyBtnH), @CancelClick);
+  AutoSizeToContent(CW, Y + Px(cBodyBtnH) + Pad);
+end;
+
+procedure TServiceProgressForm.PauseClick(Sender: TObject);
+begin
+  if Assigned(FOnPause) then FOnPause(Self);
+end;
+
+procedure TServiceProgressForm.CancelClick(Sender: TObject);
+begin
+  if Assigned(FOnCancel) then FOnCancel(Self);
+end;
+
+procedure TServiceProgressForm.SetTask(const ATitle, ADetail: string;
+  ADeterminate: Boolean);
+begin
+  FTitle.Caption := ATitle;
+  FDetailText := ADetail;
+  FDetail.Caption := ADetail;
+  FPause.Caption := rsDlgPause;
+  FPause.Enabled := True;
+  FCancel.Caption := rsDlgCancel;
+  FCancel.Enabled := True;
+  FBar.Position := 0;
+  FBar.Visible := ADeterminate;
+  if not Visible then Show;
+  BringToFront;
+end;
+
+procedure TServiceProgressForm.SetProgress(ADone, ATotal: QWord);
+var
+  Pct: Int64;
+begin
+  if ATotal = 0 then Exit;
+  Pct := Int64(ADone * 100) div Int64(ATotal);
+  if Pct < 0 then Pct := 0;
+  if Pct > 100 then Pct := 100;
+  FBar.Position := Pct;
+end;
+
+procedure TServiceProgressForm.SetPaused(APaused: Boolean);
+begin
+  if APaused then
+  begin
+    FPause.Caption := rsDlgResume;
+    FDetail.Caption := rsDlgPaused;
+  end
+  else
+  begin
+    FPause.Caption := rsDlgPause;
+    FDetail.Caption := FDetailText;
+  end;
+end;
+
+procedure TServiceProgressForm.SetCancelling;
+begin
+  FCancel.Enabled := False;
+  FCancel.Caption := rsDlgCancelling;
+  FPause.Enabled := False;
+  FDetail.Caption := rsDlgCancelling;
 end;
 
 end.

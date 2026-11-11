@@ -136,6 +136,11 @@
 			<string>compressDialog</string>
 			<key>NSPortName</key>
 			<string>TyZip</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSTextContent</key>
+				<string>FilePath</string>
+			</dict>
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.item</string>
@@ -147,12 +152,10 @@
 			<key>NSSendTypes</key>
 			<array>
 				<string>NSFilenamesPboardType</string>
+				<string>public.file-url</string>
+				<string>NSURLPboardType</string>
+				<string>public.url</string>
 			</array>
-			<key>NSRequiredContext</key>
-			<dict>
-				<key>NSApplicationIdentifier</key>
-				<string>com.apple.finder</string>
-			</dict>
 		</dict>
 		<dict>
 			<key>NSMenuItem</key>
@@ -164,6 +167,11 @@
 			<string>extractDialog</string>
 			<key>NSPortName</key>
 			<string>TyZip</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSTextContent</key>
+				<string>FilePath</string>
+			</dict>
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.item</string>
@@ -175,12 +183,10 @@
 			<key>NSSendTypes</key>
 			<array>
 				<string>NSFilenamesPboardType</string>
+				<string>public.file-url</string>
+				<string>NSURLPboardType</string>
+				<string>public.url</string>
 			</array>
-			<key>NSRequiredContext</key>
-			<dict>
-				<key>NSApplicationIdentifier</key>
-				<string>com.apple.finder</string>
-			</dict>
 		</dict>
 		<dict>
 			<key>NSMenuItem</key>
@@ -192,6 +198,11 @@
 			<string>extractHere</string>
 			<key>NSPortName</key>
 			<string>TyZip</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSTextContent</key>
+				<string>FilePath</string>
+			</dict>
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.item</string>
@@ -203,23 +214,26 @@
 			<key>NSSendTypes</key>
 			<array>
 				<string>NSFilenamesPboardType</string>
+				<string>public.file-url</string>
+				<string>NSURLPboardType</string>
+				<string>public.url</string>
 			</array>
-			<key>NSRequiredContext</key>
-			<dict>
-				<key>NSApplicationIdentifier</key>
-				<string>com.apple.finder</string>
-			</dict>
 		</dict>
 		<dict>
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>TyZip: Extract to Folder</string>
+				<string>TyZip: Extract to &lt;name&gt; Folder</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>extractToFolder</string>
 			<key>NSPortName</key>
 			<string>TyZip</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSTextContent</key>
+				<string>FilePath</string>
+			</dict>
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.item</string>
@@ -231,12 +245,10 @@
 			<key>NSSendTypes</key>
 			<array>
 				<string>NSFilenamesPboardType</string>
+				<string>public.file-url</string>
+				<string>NSURLPboardType</string>
+				<string>public.url</string>
 			</array>
-			<key>NSRequiredContext</key>
-			<dict>
-				<key>NSApplicationIdentifier</key>
-				<string>com.apple.finder</string>
-			</dict>
 		</dict>
 		<dict>
 			<key>NSMenuItem</key>
@@ -248,6 +260,11 @@
 			<string>smartExtract</string>
 			<key>NSPortName</key>
 			<string>TyZip</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSTextContent</key>
+				<string>FilePath</string>
+			</dict>
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.item</string>
@@ -258,12 +275,10 @@
 			<key>NSSendTypes</key>
 			<array>
 				<string>NSFilenamesPboardType</string>
+				<string>public.file-url</string>
+				<string>NSURLPboardType</string>
+				<string>public.url</string>
 			</array>
-			<key>NSRequiredContext</key>
-			<dict>
-				<key>NSApplicationIdentifier</key>
-				<string>com.apple.finder</string>
-			</dict>
 		</dict>
 		<dict>
 			<key>NSMenuItem</key>
@@ -275,6 +290,11 @@
 			<string>compressHere</string>
 			<key>NSPortName</key>
 			<string>TyZip</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSTextContent</key>
+				<string>FilePath</string>
+			</dict>
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.item</string>
@@ -286,12 +306,10 @@
 			<key>NSSendTypes</key>
 			<array>
 				<string>NSFilenamesPboardType</string>
+				<string>public.file-url</string>
+				<string>NSURLPboardType</string>
+				<string>public.url</string>
 			</array>
-			<key>NSRequiredContext</key>
-			<dict>
-				<key>NSApplicationIdentifier</key>
-				<string>com.apple.finder</string>
-			</dict>
 		</dict>
 		<dict>
 			<key>NSMenuItem</key>
@@ -303,6 +321,11 @@
 			<string>compressEach</string>
 			<key>NSPortName</key>
 			<string>TyZip</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSTextContent</key>
+				<string>FilePath</string>
+			</dict>
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.item</string>
@@ -314,12 +337,37 @@
 			<key>NSSendTypes</key>
 			<array>
 				<string>NSFilenamesPboardType</string>
+				<string>public.file-url</string>
+				<string>NSURLPboardType</string>
+				<string>public.url</string>
 			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>TyZip: Open with TyZip</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>openService</string>
+			<key>NSPortName</key>
+			<string>TyZip</string>
 			<key>NSRequiredContext</key>
 			<dict>
-				<key>NSApplicationIdentifier</key>
-				<string>com.apple.finder</string>
+				<key>NSTextContent</key>
+				<string>FilePath</string>
 			</dict>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+			<key>NSSendTypes</key>
+			<array>
+				<string>NSFilenamesPboardType</string>
+				<string>public.file-url</string>
+				<string>NSURLPboardType</string>
+				<string>public.url</string>
+			</array>
 		</dict>
 	</array>
 </dict>

@@ -372,6 +372,7 @@ resourcestring
   rsSvcCompressing = 'Compressing…';
   rsSvcExtractingFmt = 'Extracting %d archive(s)…';
   rsSvcExtracting = 'Extracting…';
+  rsSvcOpening = 'Opening…';
   rsErrSelectDelete = 'Select one or more entries to delete.';
   rsErrArchiveOnlyInFiles = 'Open a Finder folder first. Creating an archive from entries inside another archive is not supported yet.';
   rsInfoTestDoneFmt = 'Test complete. %d item(s) verified.';

@@ -1067,3 +1067,6 @@ msgstr "正在解压…"
 
 msgid "Searching archive"
 msgstr "正在搜索压缩包"
+
+msgid "Opening…"
+msgstr "正在打开…"

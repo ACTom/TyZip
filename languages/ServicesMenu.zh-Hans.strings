@@ -4,7 +4,8 @@
 "TyZip: Add to Archive…" = "TyZip: 添加到压缩包…";
 "TyZip: Extract…" = "TyZip: 解压…";
 "TyZip: Extract Here" = "TyZip: 解压到此处";
-"TyZip: Extract to Folder" = "TyZip: 解压到文件夹…";
+"TyZip: Extract to <name> Folder" = "TyZip: 解压到 <名字> 文件夹";
 "TyZip: Smart Extract" = "TyZip: 智能解压";
 "TyZip: Add to <name>.7z" = "TyZip: 添加到 <名字>.7z";
 "TyZip: Add Each to a Separate Archive" = "TyZip: 分别添加到独立压缩包";
+"TyZip: Open with TyZip" = "TyZip: 用 TyZip 打开";

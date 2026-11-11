@@ -50,6 +50,10 @@ function TzMacRevealFile(const APath: string): Boolean;
   Event, so the remaining files are handed to fresh instances this way. }
 function TzMacOpenInNewInstance(const APath: string): Boolean;
 
+{ Same launch, with the argument that tells the new process to force the archive
+  view for a file whose extension TyZip does not register. }
+function TzMacOpenInNewInstanceAsArchive(const APath: string): Boolean;
+
 implementation
 
 uses
@@ -328,6 +332,36 @@ begin
       { --wait? No: `open` must not block the UI thread. The caller spaces the
         launches instead (see OpenFilesFromSystem). }
       P.Parameters.Add('--args');
+      P.Parameters.Add(APath);
+      P.Options := [];
+      P.Execute;
+      Result := True;
+    finally
+      P.Free;
+    end;
+  except
+    Result := False;
+  end;
+end;
+
+function TzMacOpenInNewInstanceAsArchive(const APath: string): Boolean;
+var
+  P: TProcess;
+  Bundle: string;
+begin
+  Result := False;
+  if APath = '' then Exit;
+  Bundle := CurrentBundlePath;
+  if Bundle = '' then Exit;
+  try
+    P := TProcess.Create(nil);
+    try
+      P.Executable := '/usr/bin/open';
+      P.Parameters.Add('-n');
+      P.Parameters.Add('-a');
+      P.Parameters.Add(Bundle);
+      P.Parameters.Add('--args');
+      P.Parameters.Add('--open-as-archive');
       P.Parameters.Add(APath);
       P.Options := [];
       P.Execute;

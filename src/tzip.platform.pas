@@ -120,6 +120,11 @@ function TzRevealFile(const APath: string): Boolean;
   code path for both. }
 function TzOpenInNewInstance(const APath: string): Boolean;
 
+{ Like TzOpenInNewInstance, but the fresh process must open APath in the archive
+  view even when its extension is not registered: that is what the Finder
+  "Open with TyZip" service exists for. }
+function TzOpenInNewInstanceAsArchive(const APath: string): Boolean;
+
 implementation
 
 {$IFDEF DARWIN}
@@ -379,6 +384,18 @@ begin
   {$IFDEF DARWIN}
   try
     Result := TzMacOpenInNewInstance(APath);
+  except
+    Result := False;
+  end;
+  {$ENDIF}
+end;
+
+function TzOpenInNewInstanceAsArchive(const APath: string): Boolean;
+begin
+  Result := False;
+  {$IFDEF DARWIN}
+  try
+    Result := TzMacOpenInNewInstanceAsArchive(APath);
   except
     Result := False;
   end;
