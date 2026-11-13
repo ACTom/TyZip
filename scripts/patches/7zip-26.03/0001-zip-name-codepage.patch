@@ -20,24 +20,25 @@ index 46ccf3d..017374b 100644
  
        const bool isNonLatin = !name.IsAscii();
 diff --git a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
-index 5684cac..0580d80 100644
+index 5684cac..6f8ec47 100644
 --- a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
 +++ b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
-@@ -435,6 +435,17 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
+@@ -434,7 +434,18 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
+     }
      
      if (useSpecifiedCodePage)
-       isUtf8 = (codePage == CP_UTF8);
-+    #ifndef _WIN32
-+    else if (useSpecifiedCodePage &&
-+        GetHostOS() == NFileHeader::NHostOS::kUnix &&
-+        Check_UTF8_Buf(s.Ptr(), s.Len(), false))
 +    {
+       isUtf8 = (codePage == CP_UTF8);
++      #ifndef _WIN32
 +      /* TyZip: the POSIX build lacked the Unix-host UTF-8 heuristic the Windows
 +         build has below. Without it a UTF-8 name written without the Utf8 flag
 +         (common with mac/Linux tools) was decoded with the legacy code page. */
-+      isUtf8 = true;
++      if (!isUtf8 &&
++          GetHostOS() == NFileHeader::NHostOS::kUnix &&
++          Check_UTF8_Buf(s.Ptr(), s.Len(), false))
++        isUtf8 = true;
++      #endif
 +    }
-+    #endif
      #ifdef _WIN32
      else if (GetHostOS() == NFileHeader::NHostOS::kUnix)
      {
