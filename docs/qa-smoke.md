@@ -32,6 +32,30 @@ hash), and any item that failed.
       folder (arrow keys do the same); clicking the expander chevron only
       expands/collapses, it does not navigate.
 
+## ZIP file-name encoding
+
+- [ ] Open a zip whose Chinese names are GBK bytes without the UTF-8 flag
+      (create it on Windows, or take a known fixture): the listing shows the
+      correct names. Repeat with the default setting on English and on
+      Simplified Chinese — both decode correctly (auto follows the UI language).
+- [ ] View → Name Encoding → switch to UTF-8: the names become mojibake; switch
+      back to GB18030/GBK: the names are correct again. The setting survives
+      navigation inside the archive but resets after closing it.
+- [ ] The Name Encoding menu is grayed out inside a nested archive, for a
+      non-zip archive, and while a job is running.
+- [ ] Extract an entry with a CJK name from the GBK zip — the file on disk has
+      the correct name.
+- [ ] Create a zip with two Chinese-named files, encoding GBK: `unzip -l` (or a
+      Windows tool) lists the correct names and no `_` substitutions.
+- [ ] Edit that GBK zip (add a file, delete the other, rename an entry to
+      something GBK can represent): before and after, the raw name bytes of the
+      untouched entries are unchanged (`python3 - <<'PY'` walking the central
+      directory is enough) and the UTF-8 flag is still off.
+- [ ] Rename an entry in the GBK zip to an emoji: that one entry gets the UTF-8
+      flag and the correct name; the other entries stay GBK.
+- [ ] Settings → ZIP name encoding changed and saved: reopening the same archive
+      after closing it uses the new default.
+
 ## Search
 
 - [ ] Search a large archive by names, by contents and by both: the window stays

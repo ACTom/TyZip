@@ -32,7 +32,7 @@ TyZip 是一个单一 macOS 应用（Lazarus / Free Pascal + LCL Cocoa，控件�
 |                api.errors    11 codes -> TZErrorClass            |
 |                api.formats   format table parsed from JSON       |
 +------------------------------------------------------------------+
-                                 |   C ABI v4: UTF-8, POD, struct_size
+                                 |   C ABI v6: UTF-8, POD, struct_size
 +--------------------------------v---------------------------------+
 |  bridge        backend/tz7z.cpp  ->  libtz7z.dylib               |
 +------------------------------------------------------------------+
@@ -72,6 +72,7 @@ TyZip 是一个单一 macOS 应用（Lazarus / Free Pascal + LCL Cocoa，控件�
 | `tzip.rename.pas`、`tzip.editwrite.pas` | 引擎 | 条目改名校验与目标路径；外部编辑后的回写判定。 |
 | `tzip.platform.pas`、`tzip.platform_macos.pas`、`tzip.services_macos.pas` | 平台 | 跨平台门面；平台系统调用集中在 macOS 实现（另有几个 UI 单元带 Cocoa 分支）；Finder Services 提供者。 |
 | `tzip.settings.pas` | 横切 | `TAppSettings`、面板宽度钳制、INI 读写、最近打开列表。 |
+| `tzip.nameenc.pas` | 横切 | ZIP 名称编码表（id、代码页、「auto」按界面语言解析）。 |
 | `tzip.i18n.pas`、`tzip.i18n.lcl.pas` | 横切 | `rs*` 文案资源与语言配置；用 LCLTranslator 安装 `.mo`。 |
 | `tzip.passwords.pas`、`tzip.passwordstore.pas` | 横切 | 密码存储抽象与内存实现；`/usr/bin/security` 钥匙串实现（超时 10 s）。 |
 | `tzip.icns.pas`、`tzip.imageinfo.pas`、`tzip.timing.pas` | 横切 | `.icns` 内挑最合适的 PNG；预览图像像素预算；`TYZIP_TIMING` 启动打点。 |
@@ -98,13 +99,29 @@ TyZip 是一个单一 macOS 应用（Lazarus / Free Pascal + LCL Cocoa，控件�
 
 列表阈值在 `tzip.main`：`SyncListingEntries = 20000`。条目数不超过它就同步 `TzListArchive`（几十毫秒，避免异步闪烁），超过则改为 `jkList` 后台列举；搜索始终在后台。所有归档操作都在工作线程，遮罩卡片延迟 `OverlayRevealMs = 140` 才出现，作业期间写类按钮在 `RefreshActions` 里禁用——这就是界面不被阻塞的原因。
 
-## 7-Zip 桥接（ABI v4）
+## 7-Zip 桥接（ABI v6）
 
 `backend/tz7z.h` 导出打开/关闭、条目、注释、解压/测试、创建/修改、格式表、ABI 版本，以及 ABI v4 的 `*_ex` 入口（`tz7z_open_ex` / `tz7z_extract_ex` / `tz7z_test_ex` / `tz7z_create_ex` / `tz7z_modify_ex`）。FPC 侧 `tzip.api.bind` 绑定它们；写注释走 `tz7z_modify` 的 `comment` / `has_comment` 字段，不单独绑定 `tz7z_set_comment`。旧入口保留，内部以 NULL sink 调用 `*_ex`，所以旧调用方字节不变。跨 ABI 的结构体（`tz7z_entry_info`、`tz7z_input`、`tz7z_create_options`）都以 `struct_size` + `abi_version` 开头，库校验后不符返回 `TZ7Z_E_ARG`，不会写坏调用方内存。
 
+### ZIP 文件名编码（ABI v5 / v6）
+
+ZIP 的非 ASCII 条目名有两种存法：带 UTF-8 标志（0x0800）的 UTF-8 字节，或不带标志的本地代码页字节（Windows 工具通常写 GBK）。POSIX 版 7-Zip 没有代码页表，历史行为是把不带标志的名字逐字节读成 Latin-1，于是中文名全是乱码。`scripts/patches/7zip-26.03/0001-zip-name-codepage.patch` 做了三件事：
+
+1. `Common/StringConvert.cpp` 接 libiconv（CP936 / CP950 / CP932 / CP949 / GB18030 / CP1252 / ISO-8859-1），让带代码页的多字节转换真的可用；`7z.so` 链接 `-liconv`。
+2. `Archive/Zip/ZipItem.cpp` 补上 Windows 版才有、POSIX 版缺失的启发式：Unix host 写的名字没有标志但字节是合法 UTF-8 时按 UTF-8 读。
+3. `Archive/Zip/ZipHandlerOut.cpp`：写入时代码页表示不了的名字单条回退 UTF-8 并置 0x0800，不再写成 `_`。
+
+vendor 树保持原样：`scripts/build_7zip.sh` 把 `vendor/7zip-26.03` 复制到 `lib/build/7zip-26.03-src` 再打补丁；`build_backend.sh` 从这个打过补丁的副本取头文件，桥接读到的 PROPID 与库一致。
+
+- **ABI v5 `tz7z_set_name_codepage(archive, cp)`**：只对 ZIP 生效，打开后、读条目名之前调用；`cp=0` 保持历史行为；带 UTF-8 标志的名字永远不受影响；非 ZIP 返回 `TZ7Z_E_FORMAT`（调用方忽略）。
+- **应用侧**：`tzip.nameenc` 定义可选编码（auto / UTF-8 / GB18030 / GBK / Big5 / Shift-JIS / EUC-KR / Windows-1252）与「auto 按界面语言解析」（简体中文 → GB18030，繁体 → Big5，日 → CP932，韩 → CP949，其余 CP1252）；`tzip.settings` 把 id 存进 `[Archive] NameEncoding`；`tzip.main.StartJobNow` 把解析结果写进 `TZJob.NameCodepage`，经 `tzip.jobs` / `tzip.engine` / `tzip.api` 透传到桥接。
+- **创建**：`TCreateSettings.Codepage` 交给 7-Zip 的 `cp` 属性（`ForceUtf8` 对应 `cu`），对话框里选的名称编码随包写入。
+- **更新保持原编码**：改包前 `TzArchiveNameEncoding` 用 **ABI v6 `tz7z_entry_name_is_legacy`** 问补丁：有没有条目名是按旧代码页（或 Info-ZIP Unicode 扩展字段）读出来的。只看两次解码结果不可靠——扩展字段会让两种代码页都解出正确 Unicode。有则 `Codepage=原代码页、ForceUtf8=False`，否则 `Codepage=65001、ForceUtf8=True`；`tz7z_modify` 在读旧条目名之前用同一个代码页（`options->codepage`），因此 GBK 包改完仍是原来的 GBK 字节。混合包按旧代码页写，单条表示不了的名字走上面的 UTF-8 回退。
+- **界面**：设置里「ZIP 文件名编码」是默认值；查看 → 「名称编码」只对当前顶层 ZIP 生效，选一次就带该代码页重开当前包，不落盘。
+
 ABI v4 的详细进度通过 `tz7z_progress_sink` 传递（`struct_size` + `abi_version` + `fn` + `user`）：`tz7z_progress_info` 带 `phase`（open/extract/create/test）、`event`（tick/item/item_done）、条目索引/总数/名字、以及已知时的累计压缩字节。`*_ex` 在没有 sink 时与旧函数完全等价；旧 `tz7z_progress_fn` 仍按原语义收到 `(completed,total)` tick。`SetCompleted` / `SetRatioInfo` 可能来自编码器内部线程，桥接用一把锁串行化 sink 调用；sink 不允许碰 LCL。设计依据与逐条证据见 `docs/research/7zip-progress-callbacks.md`。
 
-加载在 `tzip.api.bind.TzLoadLibrary`：按候选路径依次 `LoadLibrary`（macOS 上是 `dlopen`，符号取 `GetProcedureAddress` / `dlsym`）。候选包括可执行文件同目录、`lib/`、`../Frameworks`、`../lib`、`../Resources`、`../../lib`、`../../Frameworks`、`$TYZIP_LIB` 和裸文件名 `libtz7z.dylib`。每个候选先查 `tz7z_format_json` 与 `tz7z_abi_version`，版本必须等于 `TZ7Z_ABI_VERSION = 4`；随后绑定全部符号（含 `*_ex`），缺一个就整体卸载并试下一个候选。
+加载在 `tzip.api.bind.TzLoadLibrary`：按候选路径依次 `LoadLibrary`（macOS 上是 `dlopen`，符号取 `GetProcedureAddress` / `dlsym`）。候选包括可执行文件同目录、`lib/`、`../Frameworks`、`../lib`、`../Resources`、`../../lib`、`../../Frameworks`、`$TYZIP_LIB` 和裸文件名 `libtz7z.dylib`。每个候选先查 `tz7z_format_json` 与 `tz7z_abi_version`，版本必须等于 `TZ7Z_ABI_VERSION = 6`；随后绑定全部符号（含 `*_ex`、`tz7z_set_name_codepage`、`tz7z_entry_name_is_legacy`），缺一个就整体卸载并试下一个候选。
 
 `libtz7z.dylib` 不自己去猜 7z 的位置：`scripts/build_backend.sh` 用 `install_name_tool` 把依赖改写成 `@loader_path/7z.so`，所以打包时两者必须放在同一目录（app 内是 `Contents/Frameworks`）。
 
