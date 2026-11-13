@@ -32,7 +32,8 @@ uses
     by its own unit, hence the warning note is expected here. }
   SynEdit, SynEditTypes, SynEditHighlighter, SynEditMiscClasses, SynGutter,
   SynEditWrappedView, LConvEncoding,
-  tzip.i18n, tzip.api, tzip.engine, tzip.progress, tzip.jobs, tzip.platform, tzip.dialogs,
+  tzip.i18n, tzip.i18n.lcl, tzip.nameenc, tzip.api, tzip.engine, tzip.progress,
+  tzip.jobs, tzip.platform, tzip.dialogs,
   tzip.createopts,
   tzip.preview, tzip.preview.session, tzip.preview.workers, tzip.preview.pane,
   tzip.extract,
@@ -636,7 +637,7 @@ type
     procedure StartOpenArchive(const APath, ADisplayName: string;
       AParent: TArchiveContext; AIsNested: Boolean; const AOpenedFromFs: string;
       AAddHistory: Boolean; APurpose: TZJobPurpose; const AInner: string;
-      const AExtractDest: string = '');
+      const AExtractDest: string = ''; ANameCodepage: LongWord = 0);
     function SelectedArchiveIndices(ANeedSelection: Boolean): TLongWordArray;
     function SelectedArchiveRows: Integer;
     function SelectedFsPaths: TStringList;
@@ -3662,7 +3663,7 @@ end;
 procedure TMainForm.StartOpenArchive(const APath, ADisplayName: string;
   AParent: TArchiveContext; AIsNested: Boolean; const AOpenedFromFs: string;
   AAddHistory: Boolean; APurpose: TZJobPurpose; const AInner: string;
-  const AExtractDest: string);
+  const AExtractDest: string; ANameCodepage: LongWord);
 var
   J: TZJob;
   Pw, OpenedFrom: string;
@@ -3706,6 +3707,9 @@ begin
   J.Parent := AParent;
   J.IsNested := AIsNested;
   J.OpenedFromFs := OpenedFrom;
+  { 0 lets StartJobNow resolve the application default; the per-archive menu
+    passes the override it just chose. }
+  J.NameCodepage := ANameCodepage;
   { The two request values the completion needs travel with the job. }
   J.InnerPath := AInner;
   J.Dest := AExtractDest;
@@ -4087,6 +4091,7 @@ begin
     J.DisplayName := FCtx.DisplayName;
     J.Password := FCtx.Password;
     J.Options := FSearchOptions;
+    J.NameCodepage := FCtx.NameCodepage;
     FListPending := False;
     StartJob(J, jpSearch, rsBusySearching, FCtx.DisplayName, True, True);
     Exit;
@@ -4116,6 +4121,7 @@ begin
   J.SortCol := FSortCol;
   J.SortDesc := FSortDesc;
   J.SetEntries(FCtx.Entries);
+  J.NameCodepage := FCtx.NameCodepage;
   FListPending := False;
   StartJob(J, jpList, rsBusyReading, FCtx.DisplayName, False, False);
 end;
@@ -4530,6 +4536,7 @@ begin
   J := TzNewRenameJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
     TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted),
     AEntry.Index, AEntry.Name, ATarget);
+  J.NameCodepage := FCtx.NameCodepage;
   StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
 end;
 
@@ -4636,6 +4643,7 @@ begin
   J.Password := FCtx.Password;
   J.EntryIndex := It.EntryIndex;
   J.OutFile := TempPathFor(It.Name);
+  J.NameCodepage := FCtx.NameCodepage;
   if It.IsArchive and (not TzIsDocumentName(It.Name)) then
     StartJob(J, jpOpenNestedThenView, rsBusyUnpacking, It.Name, True, True)
   else
@@ -5513,6 +5521,12 @@ end;
 procedure TMainForm.StartJobNow(AJob: TZJob; APurpose: TZJobPurpose;
   const ATitle, ADetail: string; ADeterminate, ACancelable: Boolean);
 begin
+  { Every archive a job opens needs the ZIP name code page. A job that carries
+    a context override keeps it; otherwise the settings default is resolved here,
+    once, before the worker reads any name. }
+  if AJob.NameCodepage = 0 then
+    AJob.NameCodepage := TzResolveNameCodepage(FSettings.NameEncoding,
+      TzEffectiveLanguageId);
   FJob := AJob;
   FJobPurpose := APurpose;
   FJobTitle := ATitle;
@@ -5953,6 +5967,7 @@ var
   Fresh: TZJob;
   Indices: TLongWordArray;
   SrcPath: string;
+  NameCp: LongWord;
 begin
   Result := joContinue;
   if AResult <> TZ7Z_OK then
@@ -5965,6 +5980,7 @@ begin
   AJob.Ctx := nil;          { claimed }
   if Ctx = nil then Exit;
   SrcPath := Ctx.SourcePath;
+  NameCp := Ctx.NameCodepage;
   Indices := TzAllIndices(Ctx);
   Ctx.Free;
   if Length(Indices) = 0 then Exit;
@@ -5976,6 +5992,7 @@ begin
   Fresh.Password := AJob.Password;
   Fresh.Dest := AJob.Dest;
   Fresh.Indices := Indices;
+  Fresh.NameCodepage := NameCp;
   StartJob(Fresh, jpExtract, rsDlgExtracting, ExtractFileName(SrcPath), True, True);
   UpdateStatus;
   Result := joDone;
@@ -7388,6 +7405,7 @@ begin
   else
     J := TzNewExtractJob(FCtx.SourcePath, FCtx.DisplayName, O.Password, Dest,
       Indices);
+  J.NameCodepage := FCtx.NameCodepage;
   StartJob(J, jpExtract, rsBusyExtracting, FCtx.DisplayName, True, True);
 end;
 
@@ -7475,6 +7493,7 @@ begin
   J := TzNewRenameJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
     TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted),
     Idx, AEntryPath, AEntryPath);
+  J.NameCodepage := FCtx.NameCodepage;
   StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
 end;
 
@@ -7508,6 +7527,7 @@ begin
     TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted));
   J.NewComment := AComment;
   J.SetComment := True;
+  J.NameCodepage := FCtx.NameCodepage;
   StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
 end;
 
@@ -7621,6 +7641,7 @@ begin
   J.Password := FCtx.Password;
   J.Settings := S;
   J.Dest := Target;
+  J.NameCodepage := FCtx.NameCodepage;
   StartJob(J, jpConvert, rsBusyConverting, FCtx.DisplayName, True, True);
 end;
 
@@ -7926,6 +7947,7 @@ begin
     FModifyMessage := Format(rsStatusAddedFmt, [Length(APaths)]);
     J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
       TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted));
+    J.NameCodepage := FCtx.NameCodepage;
     J.Sources := TStringList.Create;
     { Names[i] is exactly APaths[i]'s archive path (built in the first loop), so
       the two arrays stay parallel and no index arithmetic is needed. Skip means
@@ -7971,6 +7993,7 @@ begin
     FModifyMessage := Format(rsStatusAddedFmt, [Paths.Count]);
     J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
       TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted), Paths);
+    J.NameCodepage := FCtx.NameCodepage;
     J.ArcPrefix := FInnerPath;
     StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
   finally
@@ -7998,6 +8021,7 @@ begin
     FModifyMessage := rsStatusFolderAdded;
     J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
       TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted), Paths);
+    J.NameCodepage := FCtx.NameCodepage;
     J.ArcPrefix := FInnerPath;
     StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
   finally
@@ -8027,6 +8051,7 @@ begin
   FModifyMessage := Format(rsStatusDeletedFmt, [Length(Indices)]);
   J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
     TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted));
+  J.NameCodepage := FCtx.NameCodepage;
   J.RemoveIndices := Indices;
   StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
 end;

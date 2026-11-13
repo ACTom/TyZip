@@ -126,8 +126,12 @@ type
     FHasEncrypted: Boolean;
     FCanUpdate: Boolean;
     FCount: Integer;
+    { The ZIP name code page this handle was opened with (0 = engine
+      default), so update/detection code can reuse it without guessing. }
+    FNameCodepage: LongWord;
   public
-    constructor Create(AHandle: Pointer; const APath, APassword: string);
+    constructor Create(AHandle: Pointer; const APath, APassword: string;
+      ANameCodepage: LongWord = 0);
     destructor Destroy; override;
     property Handle: Pointer read FHandle;
     property Path: string read FPath;
@@ -136,6 +140,7 @@ type
     property HasEncrypted: Boolean read FHasEncrypted;
     property CanUpdate: Boolean read FCanUpdate;
     property Count: Integer read FCount;
+    property NameCodepage: LongWord read FNameCodepage;
     function EntryName(AIndex: Integer): string;
     function EntryInfo(AIndex: Integer): TZ7ZEntryInfo;
     function EntryMethod(AIndex: Integer): string;
@@ -151,7 +156,8 @@ function TzParseFormatsJSON(const AJSON: string): TFormatInfoArray;
 function TzFormatByName(const AName: string): TFormatInfo;
 
 function TzOpenArchive(const APath, APassword: string; out AArchive: TTzArchive;
-  out AError: string; AProgress: TZ7ZProgressSink = nil): Integer;
+  out AError: string; AProgress: TZ7ZProgressSink = nil;
+  ANameCodepage: LongWord = 0): Integer;
 function TzExtract(AArchive: TTzArchive; const AIndices: array of LongWord;
   const AOutDir, APassword: string; out AError: string;
   AProgress: TZ7ZProgressSink = nil): Integer;
@@ -315,12 +321,14 @@ begin
   inherited Create(AMsg);
 end;
 
-constructor TTzArchive.Create(AHandle: Pointer; const APath, APassword: string);
+constructor TTzArchive.Create(AHandle: Pointer; const APath, APassword: string;
+  ANameCodepage: LongWord);
 begin
   inherited Create;
   FHandle := AHandle;
   FPath := APath;
   FPassword := APassword;
+  FNameCodepage := ANameCodepage;
   if FHandle <> nil then
   begin
     FCount := tzip.api.bind._entry_count(FHandle);
@@ -390,7 +398,8 @@ end;
 
 
 function TzOpenArchive(const APath, APassword: string; out AArchive: TTzArchive;
-  out AError: string; AProgress: TZ7ZProgressSink): Integer;
+  out AError: string; AProgress: TZ7ZProgressSink;
+  ANameCodepage: LongWord): Integer;
 var
   H: Pointer;
   Err: array[0..1023] of AnsiChar;
@@ -427,7 +436,14 @@ begin
     password", and it would silently stop working the day the engine changed its
     wording. }
   if Result = TZ7Z_OK then
-    AArchive := TTzArchive.Create(H, APath, APassword)
+  begin
+    { ABI v5: names of ZIP entries without the UTF-8 flag decode with this
+      code page. Non-ZIP handlers report TZ7Z_E_FORMAT and keep their names
+      untouched, so a failed call is not an open failure. }
+    if (ANameCodepage > 0) and (H <> nil) then
+      tzip.api.bind._set_name_codepage(H, ANameCodepage);
+    AArchive := TTzArchive.Create(H, APath, APassword, ANameCodepage);
+  end
   else if AError = '' then
     AError := TzErrorText(Result);
 end;

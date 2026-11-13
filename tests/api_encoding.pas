@@ -1,18 +1,22 @@
 program api_encoding;
 {$mode objfpc}{$H+}
+{$codepage utf8}
 { ZIP entry-name encoding.
 
-  This is the Windows/Linux interop problem in one file. A ZIP stores non-ASCII
-  names either as bytes in the local ANSI code page (no UTF-8 flag) or as UTF-8
-  (flag 0x0800 set). A Windows tool writes the ANSI form, a Linux tool writes the
-  UTF-8 form, and each misreads the other -- which is what turned into mojibake
-  for users in both directions.
+  A ZIP stores non-ASCII names either as bytes in the local ANSI code page (no
+  UTF-8 flag) or as UTF-8 (flag 0x0800). A Windows tool writes the ANSI form, a
+  Linux tool writes the UTF-8 form, and each misreads the other -- which is what
+  turned into mojibake for users in both directions.
 
-  Covered here: every code page the dialog offers, the UTF-8 flag that results,
-  reading the archive back, and the non-ZIP formats whose names must survive a
-  round trip regardless. }
+  The fixtures carry raw name bytes on purpose: python writes and reads the
+  exact bytes of the ZIP header, so the assertions are about what the engine
+  really does, not about what one of our own tools happens to decode. }
 uses
   SysUtils, Classes, Process, tzip.api, tzip.engine;
+
+const
+  NAME = '中文名称.txt';
+  EMOJI_NAME = '😀名称.txt';
 
 var
   Fails, Passes: Integer;
@@ -25,6 +29,16 @@ begin
   begin
     Inc(Fails);
     WriteLn('FAIL ', AMsg);
+  end;
+end;
+
+procedure EqStr(const AGot, AWant, AMsg: string);
+begin
+  if AGot = AWant then Inc(Passes)
+  else
+  begin
+    Inc(Fails);
+    WriteLn(Format('FAIL %s: got [%s] want [%s]', [AMsg, AGot, AWant]));
   end;
 end;
 
@@ -60,25 +74,104 @@ begin
   if P <> '' then Shell('/bin/rm -rf "' + P + '"');
 end;
 
-function MakeUTF8File(const APath, AContent: string): Boolean;
+function HexOf(const S: RawByteString): string;
 var
-  FS: TFileStream;
+  I: Integer;
 begin
-  Result := False;
-  FS := nil;
-  try
-    ForceDirectories(ExtractFileDir(APath));
-    FS := TFileStream.Create(APath, fmCreate);
-    if AContent <> '' then FS.WriteBuffer(AContent[1], Length(AContent));
-    Result := True;
-  except
-    Result := False;
-  end;
-  FS.Free;
+  Result := '';
+  for I := 1 to Length(S) do
+    Result := Result + LowerCase(IntToHex(Ord(S[I]), 2));
 end;
 
-{ Create one ZIP holding a single CJK-named entry, with the given code page. }
-function MakeZip(const AOut, ACodepage: string): Integer;
+function HexToRaw(const AHex: string): RawByteString;
+var
+  I: Integer;
+begin
+  Result := '';
+  SetLength(Result, Length(AHex) div 2);
+  for I := 1 to Length(Result) do
+    Result[I] := AnsiChar(StrToIntDef('$' + Copy(AHex, (I - 1) * 2 + 1, 2), 0));
+end;
+
+{ The bytes python produces when it encodes AName in ACodec ('gbk', 'cp932',
+  ...). The fixture header and the create path are both checked against this,
+  so neither side can silently agree on the wrong bytes. }
+function PyEncodedHex(const AName, ACodec: string): string;
+var
+  Script: string;
+begin
+  Script := 'import sys;print(sys.argv[1].encode(sys.argv[2]).hex())';
+  Result := Trim(Shell('/usr/bin/python3 -c ' + QuotedStr(Script) + ' ' +
+    QuotedStr(AName) + ' ' + QuotedStr(ACodec)));
+end;
+
+function RawZipScript: string;
+begin
+  Result := Root + '/make-raw-zip.py';
+  if not FileExists(Result) then
+    Shell('cat > "' + Result + '" <<''PY''' + LineEnding +
+      'import struct, sys, zlib' + LineEnding +
+      'path = sys.argv[1]' + LineEnding +
+      'name = bytes.fromhex(sys.argv[2])' + LineEnding +
+      'host = int(sys.argv[3])' + LineEnding +
+      'flags = int(sys.argv[4])' + LineEnding +
+      'data = b"payload"' + LineEnding +
+      'crc = zlib.crc32(data) & 0xffffffff' + LineEnding +
+      'made = (host << 8) | 20' + LineEnding +
+      'lfh = struct.pack("<IHHHHHIIIHH", 0x04034b50, 20, flags, 0, 0, 0, crc,' +
+      ' len(data), len(data), len(name), 0) + name' + LineEnding +
+      'cdh = struct.pack("<IHHHHHHIIIHHHHHII", 0x02014b50, made, 20, flags,' +
+      ' 0, 0, 0, crc, len(data), len(data), len(name), 0, 0, 0, 0, 0, 0) + name' +
+      LineEnding +
+      'eocd = struct.pack("<IHHHHIIH", 0x06054b50, 0, 0, 1, 1, len(cdh),' +
+      ' len(lfh) + len(data), 0)' + LineEnding +
+      'open(path, "wb").write(lfh + data + cdh + eocd)' + LineEnding +
+      'PY');
+end;
+
+{ A one-entry ZIP whose raw name bytes, UTF-8 flag and made-by host are exactly
+  what the test chooses. AHostOS: 0 = MS-DOS, 3 = Unix. }
+function MakeRawZip(const APath: string; const ARawName: RawByteString;
+  AHostOS: Word; AFlags: Word): Boolean;
+begin
+  DelTree(APath);
+  Shell('/usr/bin/python3 ' + QuotedStr(RawZipScript) + ' ' +
+    QuotedStr(APath) + ' ' + HexOf(ARawName) + ' ' +
+    IntToStr(AHostOS) + ' ' + IntToStr(AFlags));
+  Result := FileExists(APath);
+end;
+
+{ The UTF-8 flag and the raw name bytes of a ZIP's first entry. }
+procedure ProbeZip(const AZip: string; out AFlags: LongInt; out AHex: string);
+var
+  Script, OutS: string;
+  L: TStringList;
+begin
+  AFlags := -1;
+  AHex := '';
+  Script := 'import struct,sys;d=open(sys.argv[1],"rb").read();' +
+    'i=d.find(b"PK\x03\x04");f=struct.unpack("<H",d[i+6:i+8])[0];' +
+    'n=struct.unpack("<H",d[i+26:i+28])[0];' +
+    'print("%d %s" % (f, d[i+30:i+30+n].hex()))';
+  OutS := Trim(Shell('/usr/bin/python3 -c ' + QuotedStr(Script) + ' ' +
+    QuotedStr(AZip)));
+  L := TStringList.Create;
+  try
+    L.Delimiter := ' ';
+    L.StrictDelimiter := True;
+    L.DelimitedText := OutS;
+    if L.Count >= 2 then
+    begin
+      AFlags := StrToIntDef(L[0], -1);
+      AHex := L[1];
+    end;
+  finally
+    L.Free;
+  end;
+end;
+
+{ Create one ZIP with a CJK entry name through the public create path. }
+function MakeZip(const AOut, ACodePage: string): Integer;
 var
   Settings: TCreateSettings;
   Source: TStringList;
@@ -86,20 +179,20 @@ var
   Err: string;
 begin
   { The file is created by sh so its on-disk name is exactly the UTF-8 bytes. }
-  Shell('printf "payload" > "' + Root + '/中文名称.txt"');
+  Shell('printf "payload" > "' + Root + '/' + NAME + '"');
   Source := TStringList.Create;
   Set1 := Default(TZInputSet);
   try
-    Source.Add(Root + '/中文名称.txt');
+    Source.Add(Root + '/' + NAME);
     Set1 := TzCollectInputs(Source, '');
-    Check(Length(Set1.Recs) = 1, 'source collected for ' + ACodepage);
+    Check(Length(Set1.Recs) = 1, 'source collected for ' + ACodePage);
     Settings := Default(TCreateSettings);
     Settings.FormatName := 'zip';
     Settings.Level := 5;
-    if ACodepage = 'gbk' then Settings.Codepage := 936
-    else if ACodepage = 'gb18030' then Settings.Codepage := 54936
-    else if ACodepage = 'shiftjis' then Settings.Codepage := 932
-    else if ACodepage = 'utf8' then
+    if ACodePage = 'gbk' then Settings.Codepage := 936
+    else if ACodePage = 'gb18030' then Settings.Codepage := 54936
+    else if ACodePage = 'shiftjis' then Settings.Codepage := 932
+    else if ACodePage = 'utf8' then
     begin
       Settings.Codepage := 65001;
       Settings.ForceUtf8 := True;
@@ -116,66 +209,173 @@ begin
   end;
 end;
 
-{ Read the UTF-8 flag of the first local file header directly from the bytes.
-  python's zipfile is used because it exposes the flag and the raw name without
-  guessing. }
-{ Read the UTF-8 flag, or the entry name, straight out of the ZIP with python3:
-  it exposes the raw flag bits without guessing an encoding. }
-function ZipProbe(const AZip, AWhat: string): string;
+{ The create side: the selected code page must reach the raw header bytes. }
+procedure TestWriteCodePage(const AName, ACodec: string;
+  AExpectUtf8Flag: Boolean);
 var
-  Script, Cmd: string;
+  Zip: string;
+  Flags: LongInt;
+  Hex, Want: string;
+  R: Integer;
 begin
-  if AWhat = 'flag' then
-    Script := 'import zipfile,sys;print(zipfile.ZipFile(sys.argv[1]).infolist()[0].flag_bits)'
-  else
-    Script := 'import zipfile,sys;print(zipfile.ZipFile(sys.argv[1]).infolist()[0].filename)';
-  Cmd := '/usr/bin/python3 -c ' + QuotedStr(Script) + ' ' + QuotedStr(AZip) + ' 2>/dev/null';
-  Result := Trim(Shell(Cmd));
+  Zip := Root + '/write-' + AName + '.zip';
+  R := MakeZip(Zip, AName);
+  Check(R = TZ7Z_OK, 'write ' + AName + ': created');
+  if R <> TZ7Z_OK then Exit;
+
+  ProbeZip(Zip, Flags, Hex);
+  Check(Flags >= 0, 'write ' + AName + ': could probe the zip');
+  Check((Flags and $800 <> 0) = AExpectUtf8Flag,
+    Format('write %s: UTF-8 flag is %s (%d)',
+      [AName, BoolToStr(AExpectUtf8Flag, True), Flags]));
+  Want := PyEncodedHex(NAME, ACodec);
+  Check(Hex = Want,
+    Format('write %s: raw name bytes are %s, want %s', [AName, Hex, Want]));
+  Check(Shell('/usr/bin/unzip -l "' + Zip + '" >/dev/null 2>&1; echo $?').Trim = '0',
+    'write ' + AName + ': unzip accepts the file');
 end;
 
-procedure TestCodePage(const AName: string; AExpectUtf8Flag: Boolean);
+{ Open a raw fixture and return the first entry name. }
+function RawOpenName(const AZip: string; ANameCodepage: LongWord;
+  out AName: string): Integer;
 var
-  Zip, Flag, Name: string;
+  A: TTzArchive;
+  Err: string;
+begin
+  AName := '';
+  A := nil;
+  Err := '';
+  Result := TzOpenArchive(AZip, '', A, Err, nil, ANameCodepage);
+  if Result <> TZ7Z_OK then
+  begin
+    WriteLn('   raw open: ', Err);
+    Exit;
+  end;
+  try
+    if A.Count >= 1 then AName := A.EntryName(0);
+  finally
+    A.Free;
+  end;
+end;
+
+procedure TestReadRaw(const AZip: string; ACodepage: LongWord;
+  const AWant, AMsg: string);
+var
+  Name: string;
+  R: Integer;
+begin
+  R := RawOpenName(AZip, ACodepage, Name);
+  Check(R = TZ7Z_OK, AMsg + ': opened');
+  if R = TZ7Z_OK then
+    EqStr(Name, AWant, AMsg + ': name');
+end;
+
+procedure TestReadGbk;
+var
+  Zip, Dest, Listing: string;
+  Flags: LongInt;
+  Hex: string;
   R: Integer;
   A: TTzArchive;
   Err: string;
 begin
-  Zip := Root + '/enc-' + AName + '.zip';
-  R := MakeZip(Zip, AName);
-  Check(R = TZ7Z_OK, 'encoding ' + AName + ': created');
+  Zip := Root + '/read-gbk.zip';
+  { The fixture header carries the same bytes the writer check expects. }
+  Hex := PyEncodedHex(NAME, 'gbk');
+  Check(MakeRawZip(Zip, HexToRaw(Hex), 0, 0), 'read gbk: fixture written');
+  ProbeZip(Zip, Flags, Hex);
+  EqStr(Hex, PyEncodedHex(NAME, 'gbk'),
+    'read gbk: the fixture header carries gbk bytes');
+  TestReadRaw(Zip, 936, NAME, 'read gbk: cp936');
 
-  Flag := ZipProbe(Zip, 'flag');
-  if Flag = '' then
-  begin
-    Check(False, 'encoding ' + AName + ': could not read the ZIP flag');
-    Exit;
-  end;
-  { Bit 0x0800 is "name is UTF-8". }
-  Check((StrToIntDef(Flag, 0) and $800 <> 0) = AExpectUtf8Flag,
-    Format('encoding %s: UTF-8 flag is %s (flag bits %s)',
-      [AName, BoolToStr(AExpectUtf8Flag, True), Flag]));
-
-  { Our own reader must show a usable name whatever encoding was chosen. }
+  { Extraction must put the decoded name on disk. }
   A := nil;
   Err := '';
-  R := TzOpenArchive(Zip, '', A, Err);
-  Check(R = TZ7Z_OK, 'encoding ' + AName + ': reopened');
+  Dest := Root + '/out-gbk';
+  DelTree(Dest);
+  R := TzOpenArchive(Zip, '', A, Err, nil, 936);
   if R = TZ7Z_OK then
   try
-    Check(A.Count >= 1, 'encoding ' + AName + ': has an entry');
-    if A.Count >= 1 then
-    begin
-      Name := A.EntryName(0);
-      Check(Name <> '', 'encoding ' + AName + ': entry has a name');
-      Check(Pos(#$FFFD, Name) = 0,
-        'encoding ' + AName + ': name has no replacement characters');
-    end;
+    R := TzExtract(A, [], Dest, '', Err);
+    Check(R = TZ7Z_OK, 'read gbk: extracted (' + Err + ')');
   finally
     A.Free;
+  end
+  else
+    Check(False, 'read gbk: reopen for extract');
+  Listing := Trim(Shell('/bin/ls -1 "' + Dest + '"'));
+  EqStr(Listing, NAME, 'read gbk: extracted file name');
+end;
+
+procedure TestUtf8NoFlag;
+var
+  Zip: string;
+begin
+  Zip := Root + '/read-utf8-noflag.zip';
+  { Unix made-by (3) and no flag: mac/Linux tools write this. }
+  Check(MakeRawZip(Zip, UTF8Encode(NAME), 3, 0),
+    'read utf8 no flag: fixture written');
+  TestReadRaw(Zip, 936, NAME, 'read utf8 no flag: cp936 still decodes utf8');
+end;
+
+procedure TestFlaggedUnaffected;
+var
+  Zip: string;
+begin
+  Zip := Root + '/read-flagged.zip';
+  Check(MakeRawZip(Zip, UTF8Encode(EMOJI_NAME), 0, $800),
+    'read flagged: fixture written');
+  TestReadRaw(Zip, 936, EMOJI_NAME, 'read flagged: cp936 does not touch it');
+  TestReadRaw(Zip, 0, EMOJI_NAME, 'read flagged: engine default does not touch it');
+end;
+
+procedure TestNoCodepage;
+var
+  Zip: string;
+  Name: string;
+  R: Integer;
+begin
+  Zip := Root + '/read-gbk.zip';
+  R := RawOpenName(Zip, 0, Name);
+  Check(R = TZ7Z_OK, 'read no codepage: opened');
+  Check(Name <> '', 'read no codepage: the name is still non-empty');
+end;
+
+procedure TestEncryptedZip;
+var
+  Source: TStringList;
+  Set1: TZInputSet;
+  Settings: TCreateSettings;
+  OutF, Err: string;
+  R: Integer;
+  A: TTzArchive;
+begin
+  Shell('printf "secret" > "' + Root + '/' + NAME + '"');
+  OutF := Root + '/enc-pw.zip';
+  DelTree(OutF);
+  Source := TStringList.Create;
+  Set1 := Default(TZInputSet);
+  A := nil;
+  try
+    Source.Add(Root + '/' + NAME);
+    Set1 := TzCollectInputs(Source, '');
+    Settings := Default(TCreateSettings);
+    Settings.FormatName := 'zip';
+    Settings.Level := 5;
+    Settings.Password := 'pw';
+    Err := '';
+    R := TzCreateArchive(OutF, Settings, Set1.Recs, Err);
+    Check(R = TZ7Z_OK, 'encrypted: created (' + Err + ')');
+    if R <> TZ7Z_OK then Exit;
+    R := TzOpenArchive(OutF, 'pw', A, Err, nil, 936);
+    Check(R = TZ7Z_OK, 'encrypted: opened with a password and cp936');
+    if R = TZ7Z_OK then
+      EqStr(A.EntryName(0), NAME, 'encrypted: name decoded');
+  finally
+    A.Free;
+    TzInputSetFree(Set1);
+    Source.Free;
   end;
-  { The ZIP must still be a valid archive for independent tools. }
-  Check(Shell('/usr/bin/unzip -l "' + Zip + '" >/dev/null 2>&1; echo $?').Trim = '0',
-    'encoding ' + AName + ': unzip accepts the file');
 end;
 
 { The non-ZIP formats store names in their own way; a CJK name must survive. }
@@ -200,6 +400,7 @@ begin
     Set1 := Default(TZInputSet);
     OutF := Root + '/cjk-' + Fmts[I] + '.' + Fmts[I];
     Dest := Root + '/cjkout-' + Fmts[I];
+    A := nil;
     try
       Source.Add(Root + '/cjk' + Fmts[I]);
       Set1 := TzCollectInputs(Source, '');
@@ -213,9 +414,10 @@ begin
       Check(R = TZ7Z_OK, Fmts[I] + ': CJK name created (' + Err + ')');
       if R <> TZ7Z_OK then Continue;
 
-      A := nil;
-      R := TzOpenArchive(OutF, '', A, Err);
-      Check(R = TZ7Z_OK, Fmts[I] + ': CJK archive reopened');
+      { A codepage on a non-ZIP is "apply where relevant": it must not change
+        the names these formats already store as Unicode/UTF-8. }
+      R := TzOpenArchive(OutF, '', A, Err, nil, 936);
+      Check(R = TZ7Z_OK, Fmts[I] + ': CJK archive reopened with cp936');
       if R <> TZ7Z_OK then Continue;
       try
         Found := False;
@@ -226,10 +428,12 @@ begin
         Check(R = TZ7Z_OK, Fmts[I] + ': CJK archive extracted (' + Err + ')');
       finally
         A.Free;
+        A := nil;
       end;
       Check(Trim(Shell('/bin/cat "' + Dest + '/cjk' + Fmts[I] + '/中文名字.txt" 2>/dev/null')) = 'v',
         Fmts[I] + ': CJK file extracted under the right name');
     finally
+      A.Free;
       TzInputSetFree(Set1);
       Source.Free;
     end;
@@ -252,14 +456,18 @@ begin
   DelTree(Root);
   ForceDirectories(Root);
 
-  WriteLn('-- ZIP code pages');
-  { With no code page requested the engine writes UTF-8 and sets the flag, which
-    is what modern tools produce and what the dialog calls "Auto (UTF-8)". }
-  TestCodePage('auto', True);
-  TestCodePage('gbk', False);
-  TestCodePage('gb18030', False);
-  TestCodePage('shiftjis', False);
-  TestCodePage('utf8', True);
+  WriteLn('-- create writes the chosen code page');
+  TestWriteCodePage('gbk', 'gbk', False);
+  TestWriteCodePage('gb18030', 'gb18030', False);
+  TestWriteCodePage('shiftjis', 'cp932', False);
+  TestWriteCodePage('utf8', 'utf-8', True);
+
+  WriteLn('-- read decodes legacy names');
+  TestReadGbk;
+  TestUtf8NoFlag;
+  TestFlaggedUnaffected;
+  TestNoCodepage;
+  TestEncryptedZip;
 
   WriteLn('-- other formats keep CJK names');
   TestOtherFormatsCJK;

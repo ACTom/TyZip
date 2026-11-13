@@ -230,6 +230,9 @@ type
     FResult: Integer;
     FError: string;
     FKind: TZJobKind;
+    { ZIP name code page for every archive this job opens. 0 = "not chosen by a
+      context"; StartJobNow then fills the application default. }
+    FNameCodepage: LongWord;
     FScratch: TZJobScratchPayload;
     FOpen: TZJobOpenPayload;
     FList: TZJobListPayload;
@@ -337,6 +340,8 @@ type
     property RenameTo: string read GetRenameTo write SetRenameTo;
     property Settings: TCreateSettings read GetSettings write SetSettings;
     property Options: TSearchOptions read GetOptions write SetOptions;
+    { ZIP name code page used for every archive this job opens. }
+    property NameCodepage: LongWord read FNameCodepage write FNameCodepage;
 
     constructor Create(AKind: TZJobKind);
     destructor Destroy; override;
@@ -447,7 +452,7 @@ begin
   AJob.SetProgress(0, 0, '');
   Result := TzOpenContext(AJob.FOpen.Path, AJob.FOpen.DisplayName,
     AJob.FOpen.Password, AJob.FOpen.Parent, AJob.FOpen.IsNested,
-    AJob.FOpen.OpenedFromFs, AJob.Ctx, AError, AJob.FSink);
+    AJob.FOpen.OpenedFromFs, AJob.Ctx, AError, AJob.FSink, AJob.NameCodepage);
 end;
 
 function TZJobExecutor.ListJob(AJob: TZJob; out AError: string): Integer;
@@ -458,7 +463,7 @@ begin
   if (AJob.FList.CtxRef = nil) and (AJob.FList.Path <> '') then
   begin
     Result := TzListArchiveByPath(AJob.FList.Path, AJob.FList.Password,
-      AJob.Listing, AJob.FSink);
+      AJob.Listing, AJob.FSink, AJob.NameCodepage);
     Exit;
   end;
   AJob.Listing := TzListEntries(AJob.FList.Entries, AJob.FList.InnerPath,
@@ -503,7 +508,8 @@ begin
       extracts the tree its inner archive holds instead of a bare inner stream. }
     if AJob.FExtract.StripRoot = '' then
       Exit(TzExtractInContext(AJob.FExtract.Path, AJob.FExtract.Password,
-        AJob.FExtract.Indices, AJob.FExtract.Dest, AError, AJob.FSink));
+        AJob.FExtract.Indices, AJob.FExtract.Dest, AError, AJob.FSink,
+        AJob.NameCodepage));
 
     { Flatten: extract into a staging folder inside the destination (same volume,
       so the commit is a rename), then move the contents up. Both steps are here
@@ -514,7 +520,7 @@ begin
     try
       ForceDirectories(Staging);
       Result := TzExtractInContext(AJob.FExtract.Path, AJob.FExtract.Password,
-        AJob.FExtract.Indices, Staging, AError, AJob.FSink);
+        AJob.FExtract.Indices, Staging, AError, AJob.FSink, AJob.NameCodepage);
       if Result = TZ7Z_OK then
         if not TzCommitStagedTree(Staging, AJob.FExtract.Dest,
           AJob.FExtract.StripRoot, True, @AJob.CancelledNow) then
@@ -536,7 +542,8 @@ begin
   end;
 
   A := nil;
-  Result := TzOpenArchive(AJob.FExtract.Path, AJob.FExtract.Password, A, AError);
+  Result := TzOpenArchive(AJob.FExtract.Path, AJob.FExtract.Password, A, AError,
+    nil, AJob.NameCodepage);
   try
     if Result = TZ7Z_OK then
       Result := TzExtract(A, AJob.FExtract.Indices, AJob.FExtract.Dest,
@@ -552,7 +559,8 @@ var
 begin
   A := nil;
   AError := '';
-  Result := TzOpenArchive(AJob.FTest.Path, AJob.FTest.Password, A, AError);
+  Result := TzOpenArchive(AJob.FTest.Path, AJob.FTest.Password, A, AError,
+    nil, AJob.NameCodepage);
   try
     if Result = TZ7Z_OK then
       Result := TzTest(A, AJob.FTest.Indices, AJob.FTest.Password, AError,
@@ -568,7 +576,8 @@ var
 begin
   A := nil;
   AError := '';
-  Result := TzOpenArchive(AJob.FExtractOne.Path, AJob.FExtractOne.Password, A, AError);
+  Result := TzOpenArchive(AJob.FExtractOne.Path, AJob.FExtractOne.Password, A, AError,
+    nil, AJob.NameCodepage);
   try
     if Result = TZ7Z_OK then
       Result := TzExtractOne(A, AJob.FExtractOne.EntryIndex,
@@ -599,7 +608,7 @@ function TZJobExecutor.ConvertJob(AJob: TZJob; out AError: string): Integer;
 begin
   AError := '';
   Result := TzConvertArchive(AJob.FConvert.Path, AJob.FConvert.Dest,
-    AJob.FConvert.Settings, AError, AJob.FSink);
+    AJob.FConvert.Settings, AError, AJob.FSink, AJob.NameCodepage);
 end;
 
 function TZJobExecutor.RenameJob(AJob: TZJob; out AError: string): Integer;
@@ -619,7 +628,8 @@ begin
   Tmp := GetTempDir(False) + 'tyzip-rename-' + IntToStr(GetProcessID) + '-' +
     IntToStr(GetTickCount64);
   try
-    Result := TzOpenArchive(AJob.FRename.Path, AJob.FRename.Password, A, AError);
+    Result := TzOpenArchive(AJob.FRename.Path, AJob.FRename.Password, A, AError,
+      nil, AJob.NameCodepage);
     if Result = TZ7Z_OK then
     begin
       { The index comes from the caller (and from a Clone on retry); never hand a
@@ -685,7 +695,7 @@ begin
     the UI. }
   AError := '';
   Result := TzSearchArchive(AJob.FSearch.Path, AJob.FSearch.Password,
-    AJob.FSearch.Options, AJob.Listing, AJob.FSink);
+    AJob.FSearch.Options, AJob.Listing, AJob.FSink, AJob.NameCodepage);
 end;
 
 { ---------------------------------------------------------------------------
@@ -1473,6 +1483,7 @@ begin
     jkSearch: Result.FSearch := FSearch;
   end;
   Result.FScratch := FScratch;
+  Result.FNameCodepage := FNameCodepage;
   Result.FScratch.Sources := nil;
   if FScratch.Sources <> nil then
   begin

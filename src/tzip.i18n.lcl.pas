@@ -13,13 +13,35 @@ unit tzip.i18n.lcl;
 interface
 
 uses
-  SysUtils, LCLTranslator, GetText, tzip.i18n;
+  SysUtils, LCLTranslator, GetText, Translations, tzip.i18n;
 
 { Install the language pack. Empty/system -> OS locale; an explicit id such as
   'zh_CN' is used as-is. Returns the id LCL selected ('' when nothing matched). }
 function TzApplyLanguage(const ALang: string): string;
 
+{ The language actually in effect: the configured id, or the OS language when
+  it is "system". Used to resolve the default ZIP name encoding (zh_CN gets
+  GB18030, zh_TW Big5, ...); an unresolved case answers English. }
+function TzEffectiveLanguageId: string;
+
 implementation
+
+function TzEffectiveLanguageId: string;
+var
+  Lang: string;
+  ID: TLanguageID;
+begin
+  Lang := Trim(TzConfiguredLanguage);
+  if (Lang = '') or SameText(Lang, LanguageSystem) then
+  begin
+    ID := GetLanguageID;
+    Result := ID.LanguageID;
+    if Result = '' then Result := ID.LanguageCode;
+    if Result = '' then Result := LanguageEnglish;
+  end
+  else
+    Result := Lang;
+end;
 
 function TzApplyLanguage(const ALang: string): string;
 var

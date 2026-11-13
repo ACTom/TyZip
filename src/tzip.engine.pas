@@ -42,10 +42,14 @@ type
     FOpenedFromFs: string;
     FTemporarySource: Boolean;
     FCancelled: Boolean;
+    { The ZIP name code page this context was opened with. Nested contexts
+      inherit the parent's value so a per-archive override keeps working while
+      browsing inside. }
+    FNameCodepage: LongWord;
   public
     constructor Create(AArchive: TTzArchive; const ADisplayName, ASourcePath: string;
       AParent: TArchiveContext; AIsNested: Boolean; const AOpenedFromFs: string;
-      AProgress: TZ7ZProgressSink = nil);
+      AProgress: TZ7ZProgressSink = nil; ANameCodepage: LongWord = 0);
     destructor Destroy; override;
     { Re-reads every entry into memory. Returns False when AProgress refused to
       continue; the partial entry array must then be thrown away. }
@@ -62,6 +66,7 @@ type
       unwrapping or a nested archive extracted for viewing). }
     property TemporarySource: Boolean read FTemporarySource write FTemporarySource;
     property Cancelled: Boolean read FCancelled;
+    property NameCodepage: LongWord read FNameCodepage;
     function FormatName: string;
     function HasEncrypted: Boolean;
     function CanUpdate: Boolean;
@@ -115,7 +120,7 @@ function TzIsTarWrapper(const AName: string): Boolean;
 function TzOpenContext(const APath, ADisplayName, APassword: string;
   AParent: TArchiveContext; AIsNested: Boolean; const AOpenedFromFs: string;
   out AContext: TArchiveContext; out AError: string;
-  AProgress: TZ7ZProgressSink = nil): Integer;
+  AProgress: TZ7ZProgressSink = nil; ANameCodepage: LongWord = 0): Integer;
 
 { Extract AIndices to ADest through an archive context, so a compound archive
   (.tar.gz and friends) extracts the tree its inner archive holds instead of the
@@ -123,7 +128,8 @@ function TzOpenContext(const APath, ADisplayName, APassword: string;
   file the unwrap needed. }
 function TzExtractInContext(const APath, APassword: string;
   const AIndices: TLongWordArray; const ADest: string;
-  out AError: string; AProgress: TZ7ZProgressSink = nil): Integer;
+  out AError: string; AProgress: TZ7ZProgressSink = nil;
+  ANameCodepage: LongWord = 0): Integer;
 
 function TzListArchive(AContext: TArchiveContext; const AInnerPath, AFilter: string;
   ASort: TArchiveSortColumn; ADescending: Boolean): TListing;
@@ -146,7 +152,7 @@ function TzSearchListing(AContext: TArchiveContext;
   would silently drop hits the user expected. }
 function TzSearchArchive(const APath, APassword: string;
   const AOptions: TSearchOptions; out AListing: TListing;
-  AProgress: TZ7ZProgressSink = nil): Integer;
+  AProgress: TZ7ZProgressSink = nil; ANameCodepage: LongWord = 0): Integer;
 
 { The whole archive as one flat listing, from a path instead of a context: it
   opens its own context (unwrap included) so a worker can list a big archive
@@ -154,7 +160,8 @@ function TzSearchArchive(const APath, APassword: string;
   is no folder view here, so no ".." row), sorted by path like a search result.
   A refused progress tick cancels the operation and delivers no listing. }
 function TzListArchiveByPath(const APath, APassword: string;
-  out AListing: TListing; AProgress: TZ7ZProgressSink = nil): Integer;
+  out AListing: TListing; AProgress: TZ7ZProgressSink = nil;
+  ANameCodepage: LongWord = 0): Integer;
 
 { Listing built from an entries snapshot instead of a live context, so it can
   run on a worker thread while the UI keeps painting. }
@@ -221,7 +228,7 @@ function TzIsSplitArchivePart(const APath: string): Boolean;
   archive where a good one used to be. The source is left untouched. }
 function TzConvertArchive(const ASourcePath, AOutPath: string;
   const ASettings: TCreateSettings; out AError: string;
-  AProgress: TZ7ZProgressSink = nil): Integer;
+  AProgress: TZ7ZProgressSink = nil; ANameCodepage: LongWord = 0): Integer;
 
 { The file name to give an entry extracted to a temp directory.
 
@@ -262,7 +269,7 @@ end;
 
 function TzConvertArchive(const ASourcePath, AOutPath: string;
   const ASettings: TCreateSettings; out AError: string;
-  AProgress: TZ7ZProgressSink): Integer;
+  AProgress: TZ7ZProgressSink; ANameCodepage: LongWord): Integer;
 var
   A: TTzArchive;
   Work, TmpOut, Name, Disk: string;
@@ -295,7 +302,7 @@ begin
   DiskList := TStringList.Create;
   ArcList := TStringList.Create;
   try
-    Result := TzOpenArchive(ASourcePath, '', A, AError);
+    Result := TzOpenArchive(ASourcePath, '', A, AError, nil, ANameCodepage);
     if Result <> TZ7Z_OK then Exit;
     try
       SetLength(Idx, A.Count);
@@ -541,7 +548,8 @@ begin
 end;
 
 function TzListArchiveByPath(const APath, APassword: string;
-  out AListing: TListing; AProgress: TZ7ZProgressSink): Integer;
+  out AListing: TListing; AProgress: TZ7ZProgressSink;
+  ANameCodepage: LongWord): Integer;
 var
   Ctx: TArchiveContext;
   Err: string;
@@ -551,7 +559,7 @@ var
 begin
   AListing := nil;
   Result := TzOpenContext(APath, ExtractFileName(APath), APassword, nil, False,
-    APath, Ctx, Err);
+    APath, Ctx, Err, nil, ANameCodepage);
   if Result <> TZ7Z_OK then Exit;
   try
     N := Length(Ctx.Entries);
@@ -593,7 +601,7 @@ end;
 
 function TzSearchArchive(const APath, APassword: string;
   const AOptions: TSearchOptions; out AListing: TListing;
-  AProgress: TZ7ZProgressSink): Integer;
+  AProgress: TZ7ZProgressSink; ANameCodepage: LongWord): Integer;
 var
   Ctx: TArchiveContext;
   Err: string;
@@ -601,7 +609,7 @@ var
 begin
   AListing := nil;
   Result := TzOpenContext(APath, ExtractFileName(APath), APassword, nil, False,
-    APath, Ctx, Err);
+    APath, Ctx, Err, nil, ANameCodepage);
   if Result <> TZ7Z_OK then Exit;
   try
     AListing := TzSearchEntries(Ctx.Archive, Ctx.Entries, AOptions, AProgress,
@@ -780,7 +788,7 @@ end;
 constructor TArchiveContext.Create(AArchive: TTzArchive;
   const ADisplayName, ASourcePath: string; AParent: TArchiveContext;
   AIsNested: Boolean; const AOpenedFromFs: string;
-  AProgress: TZ7ZProgressSink = nil);
+  AProgress: TZ7ZProgressSink; ANameCodepage: LongWord);
 begin
   inherited Create;
   FArchive := AArchive;
@@ -789,6 +797,13 @@ begin
   FParent := AParent;
   FIsNested := AIsNested;
   FOpenedFromFs := AOpenedFromFs;
+  { A nested context inherits its parent's code page unless the caller is more
+    specific; the archive itself remembers what it was opened with. }
+  FNameCodepage := ANameCodepage;
+  if (FNameCodepage = 0) and (AArchive <> nil) then
+    FNameCodepage := AArchive.NameCodepage;
+  if (FNameCodepage = 0) and (AParent <> nil) then
+    FNameCodepage := AParent.NameCodepage;
   if AArchive <> nil then FPassword := AArchive.Password;
   FCancelled := not Reload(AProgress);
 end;
@@ -1147,7 +1162,7 @@ end;
 function TzOpenContext(const APath, ADisplayName, APassword: string;
   AParent: TArchiveContext; AIsNested: Boolean; const AOpenedFromFs: string;
   out AContext: TArchiveContext; out AError: string;
-  AProgress: TZ7ZProgressSink): Integer;
+  AProgress: TZ7ZProgressSink; ANameCodepage: LongWord): Integer;
 var
   A, Inner: TTzArchive;
   Info: TZ7ZEntryInfo;
@@ -1187,7 +1202,7 @@ var
 begin
   AContext := nil;
   A := nil;
-  Result := TzOpenArchive(APath, APassword, A, AError);
+  Result := TzOpenArchive(APath, APassword, A, AError, nil, ANameCodepage);
   if Result <> TZ7Z_OK then Exit;
   Temps := TStringList.Create;
   CurrentPath := APath;
@@ -1265,7 +1280,7 @@ begin
       { From here on the file exists and belongs to this call. If the walk stops
         before a context takes it over, it is deleted on the way out. }
       Temps.Add(Tmp);
-      if TzOpenArchive(Tmp, APassword, Inner, E2) <> TZ7Z_OK then
+      if TzOpenArchive(Tmp, APassword, Inner, E2, nil, ANameCodepage) <> TZ7Z_OK then
       begin
         if FileExists(Tmp) then DeleteFile(Tmp);
         Temps.Delete(Temps.Count - 1);
@@ -1277,7 +1292,7 @@ begin
           package; keep what we have rather than unwrap forever. }
         try
           AContext := TArchiveContext.Create(Inner, ADisplayName, Tmp, AParent,
-            True, AOpenedFromFs, AProgress);
+            True, AOpenedFromFs, AProgress, ANameCodepage);
         except
           Inner.Free;
           raise;
@@ -1319,7 +1334,7 @@ begin
       { Not a wrapper any more: this is what the user should see. }
       try
         AContext := TArchiveContext.Create(Inner, ADisplayName, Tmp, AParent,
-          True, AOpenedFromFs, AProgress);
+          True, AOpenedFromFs, AProgress, ANameCodepage);
         if FreeIfCancelled then Exit(TZ7Z_E_CANCEL);
         AContext.TemporarySource := True;
         KeepPath := Tmp;
@@ -1349,7 +1364,7 @@ begin
   if CurrentIsTemp then KeepPath := CurrentPath;
   try
     AContext := TArchiveContext.Create(A, ADisplayName, CurrentPath, AParent,
-      AIsNested or CurrentIsTemp, AOpenedFromFs, AProgress);
+      AIsNested or CurrentIsTemp, AOpenedFromFs, AProgress, ANameCodepage);
     if AContext.Cancelled then
     begin
       AContext.Free;
@@ -1762,14 +1777,15 @@ end;
 
 function TzExtractInContext(const APath, APassword: string;
   const AIndices: TLongWordArray; const ADest: string;
-  out AError: string; AProgress: TZ7ZProgressSink): Integer;
+  out AError: string; AProgress: TZ7ZProgressSink;
+  ANameCodepage: LongWord): Integer;
 var
   Ctx: TArchiveContext;
   Err: string;
 begin
   AError := '';
   Result := TzOpenContext(APath, ExtractFileName(APath), APassword, nil, False,
-    APath, Ctx, Err, AProgress);
+    APath, Ctx, Err, AProgress, ANameCodepage);
   if Result <> TZ7Z_OK then
   begin
     AError := Err;
