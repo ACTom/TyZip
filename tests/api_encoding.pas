@@ -860,6 +860,54 @@ begin
   end;
 end;
 
+{ One non-East-Asian code page end to end: write and read back. The iconv
+  table must actually know it; an unknown code page falls back to bytes and the
+  name comes back mojibake. }
+procedure TestCyrillicCodePage;
+var
+  Zip, CyrName, Err, Name: string;
+  S: TCreateSettings;
+  Source: TStringList;
+  Set1: TZInputSet;
+  Entries: TStringList;
+  R: Integer;
+begin
+  CyrName := 'Привет.txt';
+  Shell('printf "x" > "' + Root + '/' + CyrName + '"');
+  Zip := Root + '/write-cp1251.zip';
+  Source := TStringList.Create;
+  Set1 := Default(TZInputSet);
+  try
+    Source.Add(Root + '/' + CyrName);
+    Set1 := TzCollectInputs(Source, '');
+    S := Default(TCreateSettings);
+    S.FormatName := 'zip';
+    S.Level := 5;
+    S.Codepage := 1251;
+    DelTree(Zip);
+    Err := '';
+    R := TzCreateArchive(Zip, S, Set1.Recs, Err);
+    Check(R = TZ7Z_OK, Format('cp1251: created (%d %s)', [R, Err]));
+  finally
+    TzInputSetFree(Set1);
+    Source.Free;
+  end;
+
+  Entries := ProbeEntries(Zip);
+  try
+    Check(Entries.Count = 1, 'cp1251: one entry');
+    if Entries.Count = 1 then
+      EqStr(Entries[0], '0 ' + PyEncodedHex(CyrName, 'cp1251'),
+        'cp1251: the raw name bytes are windows-1251');
+  finally
+    Entries.Free;
+  end;
+
+  R := RawOpenName(Zip, 1251, Name);
+  Check(R = TZ7Z_OK, 'cp1251: reopened');
+  EqStr(Name, CyrName, 'cp1251: the name is read back through the code page');
+end;
+
 begin
   Fails := 0;
   Passes := 0;
@@ -881,6 +929,7 @@ begin
   TestWriteCodePage('gb18030', 'gb18030', False);
   TestWriteCodePage('shiftjis', 'cp932', False);
   TestWriteCodePage('utf8', 'utf-8', True);
+  TestCyrillicCodePage;
 
   WriteLn('-- read decodes legacy names');
   TestReadGbk;

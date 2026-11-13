@@ -1102,3 +1102,33 @@ msgid ""
 "Used for ZIP entry names without the UTF-8 flag. Editing an archive keeps the "
 "encoding it was opened with."
 msgstr "用于没有 UTF-8 标志的 ZIP 条目名。编辑压缩包后会保持打开时的编码。"
+
+msgid "Latin-1 (ISO-8859-1)"
+msgstr "Latin-1（ISO-8859-1）"
+
+msgid "Windows-1250 (Central European)"
+msgstr "Windows-1250（中欧）"
+
+msgid "Windows-1251 (Cyrillic)"
+msgstr "Windows-1251（西里尔/俄文）"
+
+msgid "Windows-1253 (Greek)"
+msgstr "Windows-1253（希腊）"
+
+msgid "Windows-1254 (Turkish)"
+msgstr "Windows-1254（土耳其）"
+
+msgid "Windows-1255 (Hebrew)"
+msgstr "Windows-1255（希伯来）"
+
+msgid "Windows-1256 (Arabic)"
+msgstr "Windows-1256（阿拉伯）"
+
+msgid "Windows-1257 (Baltic)"
+msgstr "Windows-1257（波罗的海）"
+
+msgid "Windows-1258 (Vietnamese)"
+msgstr "Windows-1258（越南）"
+
+msgid "Windows-874 (Thai)"
+msgstr "Windows-874（泰文）"

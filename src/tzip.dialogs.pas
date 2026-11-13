@@ -945,14 +945,14 @@ begin
     choices above it. }
   FLblCodepage := NewLabel(Page, rsDlgCodepage, Pad, Y, Px(110), Px(cLabelH));
   FCodepage := NewCombo(Page, Pad + Px(110), Y - Px(4), Px(240), Px(cComboH));
-  FCodepage.Items.Add(rsDlgCpAuto);
-  FCodepage.Items.Add(rsDlgCpUtf8);
-  FCodepage.Items.Add(rsDlgCpGbk);
-  FCodepage.Items.Add(rsDlgCpGb18030);
-  FCodepage.Items.Add(rsDlgCpShiftJis);
-  FCodepage.Items.Add(rsDlgCpLatin1);
-  Assert(FCodepage.Items.Count = Length(CreateCodepages),
-    'codepage choices and CreateCodepages[] disagree');
+  { The same list the settings page and the View menu use, so an encoding is
+    never offered in one place and missing from another. Row 0 keeps its own
+    label: for writing, "auto" means plain UTF-8 (the historical default),
+    while for reading it means "resolve from the interface language". }
+  TzNameEncodingChoices(FCodepage.Items, nil);
+  FCodepage.Items[0] := rsDlgCpAuto;
+  Assert(FCodepage.Items.Count = Length(NameEncodings),
+    'codepage choices and NameEncodings[] disagree');
 
   FCodepage.ItemIndex := 0;
   Y := Y + Px(30);

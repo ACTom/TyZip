@@ -58,6 +58,16 @@ resourcestring
   rsEncSjis = 'Shift-JIS';
   rsEncEuckr = 'EUC-KR';
   rsEncCp1252 = 'Windows-1252';
+  rsEncLatin1 = 'Latin-1 (ISO-8859-1)';
+  rsEncCp1250 = 'Windows-1250 (Central European)';
+  rsEncCp1251 = 'Windows-1251 (Cyrillic)';
+  rsEncCp1253 = 'Windows-1253 (Greek)';
+  rsEncCp1254 = 'Windows-1254 (Turkish)';
+  rsEncCp1255 = 'Windows-1255 (Hebrew)';
+  rsEncCp1256 = 'Windows-1256 (Arabic)';
+  rsEncCp1257 = 'Windows-1257 (Baltic)';
+  rsEncCp1258 = 'Windows-1258 (Vietnamese)';
+  rsEncCp874 = 'Windows-874 (Thai)';
   rsMenuAbout = 'About TyZip';
   rsToolNew = 'New';
   rsToolOpen = 'Open';
@@ -266,11 +276,6 @@ resourcestring
   rsDlgAES256 = 'AES-256 encryption (zip)';
   rsDlgCodepage = 'Name encoding:';
   rsDlgCpAuto = 'Auto (UTF-8)';
-  rsDlgCpUtf8 = 'UTF-8';
-  rsDlgCpGbk = 'GBK (Chinese Windows)';
-  rsDlgCpGb18030 = 'GB18030';
-  rsDlgCpShiftJis = 'Shift-JIS (Japanese)';
-  rsDlgCpLatin1 = 'Latin-1 (Western)';
   rsDlgEncryptNote = 'Encryption is available for 7z and zip only.';
   rsDlgCpNote = 'Affects non-ASCII entry names. Tools on other systems must use the same one.';
   rsDlgDictSize = 'Dictionary:';
@@ -578,6 +583,16 @@ begin
   else if SameText(AId, 'sjis') then Result := rsEncSjis
   else if SameText(AId, 'euckr') then Result := rsEncEuckr
   else if SameText(AId, 'cp1252') then Result := rsEncCp1252
+  else if SameText(AId, 'latin1') then Result := rsEncLatin1
+  else if SameText(AId, 'cp1250') then Result := rsEncCp1250
+  else if SameText(AId, 'cp1251') then Result := rsEncCp1251
+  else if SameText(AId, 'cp1253') then Result := rsEncCp1253
+  else if SameText(AId, 'cp1254') then Result := rsEncCp1254
+  else if SameText(AId, 'cp1255') then Result := rsEncCp1255
+  else if SameText(AId, 'cp1256') then Result := rsEncCp1256
+  else if SameText(AId, 'cp1257') then Result := rsEncCp1257
+  else if SameText(AId, 'cp1258') then Result := rsEncCp1258
+  else if SameText(AId, 'cp874') then Result := rsEncCp874
   else Result := rsEncAutoByLanguage;
 end;
 

@@ -19,7 +19,7 @@ unit tzip.createopts;
 interface
 
 uses
-  Classes, SysUtils, tzip.api, tzip.settings;
+  Classes, SysUtils, tzip.api, tzip.settings, tzip.nameenc;
 
 type
   { What a writable format can actually be told to do. The dialog shows only the
@@ -55,7 +55,6 @@ const
 
   { Name-encoding choices behind the Codepage combo, in combo order. 0 is "let
     the engine decide"; 28591 is the Windows number for ISO-8859-1. }
-  CreateCodepages: array[0..5] of LongWord = (0, 65001, 936, 54936, 932, 28591);
 
   CodepageAuto = LongWord(0);
   CodepageUtf8 = LongWord(65001);
@@ -429,19 +428,15 @@ end;
 
 function TzCodepageValue(AIndex: Integer): LongWord;
 begin
-  if (AIndex < 0) or (AIndex > High(CreateCodepages)) then
+  if (AIndex < 0) or (AIndex > High(NameEncodings)) then
     Result := CodepageAuto
   else
-    Result := CreateCodepages[AIndex];
+    Result := NameEncodings[AIndex].Codepage;
 end;
 
 function TzCodepageComboIndex(ACodepage: LongWord): Integer;
-var
-  I: Integer;
 begin
-  for I := 0 to High(CreateCodepages) do
-    if CreateCodepages[I] = ACodepage then Exit(I);
-  Result := -1;
+  Result := TzNameEncodingIndexByCodepage(ACodepage);
 end;
 
 function TzVolumeValue(AIndex: Integer): QWord;

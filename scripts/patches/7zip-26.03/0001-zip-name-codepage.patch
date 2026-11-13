@@ -147,7 +147,7 @@ index e074794..da55ba1 100644
  
    kpidUserDefined = 0x10000
 diff --git a/vendor/7zip-26.03/CPP/Common/StringConvert.cpp b/vendor/7zip-26.03/CPP/Common/StringConvert.cpp
-index 79ff9e0..108ac2d 100644
+index 79ff9e0..0689372 100644
 --- a/vendor/7zip-26.03/CPP/Common/StringConvert.cpp
 +++ b/vendor/7zip-26.03/CPP/Common/StringConvert.cpp
 @@ -7,6 +7,7 @@
@@ -158,7 +158,7 @@ index 79ff9e0..108ac2d 100644
  #endif
  
  #if !defined(_WIN32) || defined(ENV_HAVE_LOCALE)
-@@ -259,12 +260,86 @@ static void MultiByteToUnicodeString2_Native(UString &dest, const AString &src)
+@@ -259,12 +260,95 @@ static void MultiByteToUnicodeString2_Native(UString &dest, const AString &src)
  
  bool g_ForceToUTF8 = true; // false;
  
@@ -177,7 +177,16 @@ index 79ff9e0..108ac2d 100644
 +    case 950:   name = "BIG5"; return true;
 +    case 932:   name = "CP932"; return true;
 +    case 949:   name = "CP949"; return true;
++    case 1250:  name = "CP1250"; return true;
++    case 1251:  name = "CP1251"; return true;
 +    case 1252:  name = "CP1252"; return true;
++    case 1253:  name = "CP1253"; return true;
++    case 1254:  name = "CP1254"; return true;
++    case 1255:  name = "CP1255"; return true;
++    case 1256:  name = "CP1256"; return true;
++    case 1257:  name = "CP1257"; return true;
++    case 1258:  name = "CP1258"; return true;
++    case 874:   name = "CP874"; return true;
 +    case 28591: name = "ISO-8859-1"; return true;
 +    default: return false;
 +  }
@@ -245,7 +254,7 @@ index 79ff9e0..108ac2d 100644
    if (codePage == CP_UTF8 || g_ForceToUTF8)
    {
  #if 1
-@@ -393,6 +468,20 @@ static void UnicodeStringToMultiByte2_Native(AString &dest, const UString &src)
+@@ -393,6 +477,20 @@ static void UnicodeStringToMultiByte2_Native(AString &dest, const UString &src)
  
  static void UnicodeStringToMultiByte2(AString &dest, const UString &src2, UINT codePage, char defaultChar, bool &defaultCharWasUsed)
  {

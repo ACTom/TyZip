@@ -33,6 +33,16 @@ begin
   end;
 end;
 
+procedure EqInt(AGot, AWant: Integer; const AMsg: string);
+begin
+  if AGot = AWant then Inc(Passes)
+  else
+  begin
+    Inc(Fails);
+    WriteLn(Format('FAIL %s: got %d want %d', [AMsg, AGot, AWant]));
+  end;
+end;
+
 procedure EqCode(AGot, AWant: LongWord; const AMsg: string);
 begin
   if AGot = AWant then Inc(Passes)
@@ -47,7 +57,7 @@ procedure TestTable;
 begin
   { The table order is the UI order; the ids and code pages are the stored
     values. Adjust both together with the settings dialog. }
-  Check(Length(NameEncodings) = 8, 'table: eight encodings');
+  Check(Length(NameEncodings) = 18, 'table: eighteen encodings');
   EqStr(NameEncodings[0].Id, 'auto', 'table: 0 is auto');
   EqCode(NameEncodings[0].Codepage, 0, 'table: auto has no code page');
   EqStr(NameEncodings[1].Id, 'utf8', 'table: 1 is utf8');
@@ -64,6 +74,26 @@ begin
   EqCode(NameEncodings[6].Codepage, 949, 'table: euckr is 949');
   EqStr(NameEncodings[7].Id, 'cp1252', 'table: 7 is cp1252');
   EqCode(NameEncodings[7].Codepage, 1252, 'table: cp1252 is 1252');
+  EqStr(NameEncodings[8].Id, 'latin1', 'table: 8 is latin1');
+  EqCode(NameEncodings[8].Codepage, 28591, 'table: latin1 is 28591');
+  EqStr(NameEncodings[9].Id, 'cp1250', 'table: 9 is cp1250');
+  EqCode(NameEncodings[9].Codepage, 1250, 'table: cp1250 is 1250');
+  EqStr(NameEncodings[10].Id, 'cp1251', 'table: 10 is cp1251');
+  EqCode(NameEncodings[10].Codepage, 1251, 'table: cp1251 is 1251');
+  EqStr(NameEncodings[11].Id, 'cp1253', 'table: 11 is cp1253');
+  EqCode(NameEncodings[11].Codepage, 1253, 'table: cp1253 is 1253');
+  EqStr(NameEncodings[12].Id, 'cp1254', 'table: 12 is cp1254');
+  EqCode(NameEncodings[12].Codepage, 1254, 'table: cp1254 is 1254');
+  EqStr(NameEncodings[13].Id, 'cp1255', 'table: 13 is cp1255');
+  EqCode(NameEncodings[13].Codepage, 1255, 'table: cp1255 is 1255');
+  EqStr(NameEncodings[14].Id, 'cp1256', 'table: 14 is cp1256');
+  EqCode(NameEncodings[14].Codepage, 1256, 'table: cp1256 is 1256');
+  EqStr(NameEncodings[15].Id, 'cp1257', 'table: 15 is cp1257');
+  EqCode(NameEncodings[15].Codepage, 1257, 'table: cp1257 is 1257');
+  EqStr(NameEncodings[16].Id, 'cp1258', 'table: 16 is cp1258');
+  EqCode(NameEncodings[16].Codepage, 1258, 'table: cp1258 is 1258');
+  EqStr(NameEncodings[17].Id, 'cp874', 'table: 17 is cp874');
+  EqCode(NameEncodings[17].Codepage, 874, 'table: cp874 is 874');
   EqStr(NameEncodingDefault, 'auto', 'table: the default is auto');
 end;
 
@@ -78,6 +108,15 @@ begin
     'by id: unknown falls back to auto');
   { Settings loading relies on this: the returned id is canonical. }
   EqStr(TzNameEncodingById('GBK').Id, 'gbk', 'by id: the id is canonical');
+end;
+
+procedure TestIndexByCodepage;
+begin
+  EqInt(TzNameEncodingIndexByCodepage(0), 0, 'index: 0 is auto');
+  EqInt(TzNameEncodingIndexByCodepage(936), 3, 'index: gbk');
+  EqInt(TzNameEncodingIndexByCodepage(28591), 8, 'index: latin1');
+  EqInt(TzNameEncodingIndexByCodepage(874), 17, 'index: cp874');
+  EqInt(TzNameEncodingIndexByCodepage(437), -1, 'index: DOS-437 is unknown');
 end;
 
 procedure TestResolve;
@@ -112,6 +151,7 @@ begin
   TestTable;
   WriteLn('-- lookup');
   TestById;
+  TestIndexByCodepage;
   WriteLn('-- resolve');
   TestResolve;
   WriteLn;

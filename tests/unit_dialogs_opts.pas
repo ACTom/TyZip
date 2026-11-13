@@ -10,7 +10,7 @@ program unit_dialogs_opts;
   never matched), and saving the settings page rebuilt the record from scratch,
   blanking the pane widths the main form owns. }
 uses
-  Classes, SysUtils, tzip.api, tzip.settings, tzip.createopts;
+  Classes, SysUtils, tzip.api, tzip.settings, tzip.createopts, tzip.nameenc;
 
 var
   Fails, Passes: Integer;
@@ -304,15 +304,20 @@ procedure TestCodepageMapping;
 begin
   EqInt(TzCodepageComboIndex(CodepageAuto), 0, 'codepage auto');
   EqInt(TzCodepageComboIndex(CodepageUtf8), 1, 'codepage UTF-8');
-  EqInt(TzCodepageComboIndex(936), 2, 'codepage GBK');
-  EqInt(TzCodepageComboIndex(54936), 3, 'codepage GB18030');
-  EqInt(TzCodepageComboIndex(932), 4, 'codepage Shift-JIS');
-  EqInt(TzCodepageComboIndex(28591), 5, 'codepage Latin-1');
-  EqInt(TzCodepageComboIndex(950), -1, 'codepage not offered');
+  EqInt(TzCodepageComboIndex(54936), 2, 'codepage GB18030');
+  EqInt(TzCodepageComboIndex(936), 3, 'codepage GBK');
+  EqInt(TzCodepageComboIndex(950), 4, 'codepage Big5');
+  EqInt(TzCodepageComboIndex(932), 5, 'codepage Shift-JIS');
+  EqInt(TzCodepageComboIndex(949), 6, 'codepage EUC-KR');
+  EqInt(TzCodepageComboIndex(1252), 7, 'codepage Windows-1252');
+  EqInt(TzCodepageComboIndex(28591), 8, 'codepage Latin-1');
+  EqInt(TzCodepageComboIndex(1251), 10, 'codepage Windows-1251');
+  EqInt(TzCodepageComboIndex(874), 17, 'codepage Windows-874');
+  EqInt(TzCodepageComboIndex(437), -1, 'codepage DOS-437 is not offered');
   EqUInt(TzCodepageValue(0), 0, 'codepage value auto');
-  EqUInt(TzCodepageValue(5), 28591, 'codepage value Latin-1');
+  EqUInt(TzCodepageValue(8), 28591, 'codepage value Latin-1');
   EqUInt(TzCodepageValue(-1), 0, 'codepage value out of range');
-  EqUInt(TzCodepageValue(6), 0, 'codepage value out of range');
+  EqUInt(TzCodepageValue(18), 0, 'codepage value out of range');
 end;
 
 procedure TestVolumeMapping;
@@ -531,25 +536,25 @@ procedure TestCodepageMatrix;
 var
   I, J: Integer;
 begin
-  for I := 0 to High(CreateCodepages) do
+  for I := 0 to High(NameEncodings) do
   begin
-    EqUInt(TzCodepageValue(I), CreateCodepages[I], Format('codepage row %d value', [I]));
-    EqInt(TzCodepageComboIndex(CreateCodepages[I]), I,
+    EqUInt(TzCodepageValue(I), NameEncodings[I].Codepage,
+      Format('codepage row %d value', [I]));
+    EqInt(TzCodepageComboIndex(NameEncodings[I].Codepage), I,
       Format('codepage row %d round trip', [I]));
   end;
   { A repeated value would make one row unreachable; distinctness is what lets
     the preset path find the row from the stored number at all. }
-  for I := 0 to High(CreateCodepages) do
-    for J := I + 1 to High(CreateCodepages) do
-      Check(CreateCodepages[I] <> CreateCodepages[J],
+  for I := 0 to High(NameEncodings) do
+    for J := I + 1 to High(NameEncodings) do
+      Check(NameEncodings[I].Codepage <> NameEncodings[J].Codepage,
         Format('codepage rows %d and %d differ', [I, J]));
-  EqUInt(CreateCodepages[0], CodepageAuto, 'codepage row 0 means auto');
-  EqUInt(CreateCodepages[1], CodepageUtf8, 'codepage row 1 is UTF-8');
+  EqUInt(NameEncodings[0].Codepage, CodepageAuto, 'codepage row 0 means auto');
+  EqUInt(NameEncodings[1].Codepage, CodepageUtf8, 'codepage row 1 is UTF-8');
 
   { Encodings the dialog does not offer must not be silently mapped to a row. }
   EqInt(TzCodepageComboIndex(437), -1, 'codepage DOS-437 is not offered');
-  EqInt(TzCodepageComboIndex(950), -1, 'codepage Big5 is not offered');
-  EqInt(TzCodepageComboIndex(1252), -1, 'codepage Windows-1252 is not offered');
+  EqInt(TzCodepageComboIndex(866), -1, 'codepage DOS-866 is not offered');
   EqInt(TzCodepageComboIndex(28592), -1, 'codepage ISO-8859-2 is not offered');
 end;
 
