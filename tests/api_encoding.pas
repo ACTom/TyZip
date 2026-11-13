@@ -811,6 +811,55 @@ begin
   end;
 end;
 
+procedure TestConvertHonoursCodePage;
+var
+  Src, Dst, Err: string;
+  S: TCreateSettings;
+  Entries: TStringList;
+  R: Integer;
+begin
+  Src := Root + '/convert-src.zip';
+  Check(MakeZip(Src, 'utf8') = TZ7Z_OK, 'convert: source fixture');
+
+  { The conversion dialog's own codepage choice must reach the writer instead of
+    being overridden with "always UTF-8". }
+  Dst := Root + '/convert-gbk.zip';
+  S := Default(TCreateSettings);
+  S.FormatName := 'zip';
+  S.Level := -1;
+  S.Codepage := 936;
+  S.ForceUtf8 := False;
+  Err := '';
+  R := TzConvertArchive(Src, Dst, S, Err);
+  Check(R = TZ7Z_OK, Format('convert: gbk conversion returned %d (%s)', [R, Err]));
+  Entries := ProbeEntries(Dst);
+  try
+    Check(Entries.Count = 1, 'convert: gbk target has one entry');
+    if Entries.Count = 1 then
+      EqStr(Entries[0], '0 ' + PyEncodedHex(NAME, 'gbk'),
+        'convert: the target names are written in the chosen code page');
+  finally
+    Entries.Free;
+  end;
+
+  Dst := Root + '/convert-utf8.zip';
+  S := Default(TCreateSettings);
+  S.FormatName := 'zip';
+  S.Level := -1;
+  S.Codepage := 65001;
+  S.ForceUtf8 := True;
+  Err := '';
+  R := TzConvertArchive(Src, Dst, S, Err);
+  Check(R = TZ7Z_OK, Format('convert: utf8 conversion returned %d (%s)', [R, Err]));
+  Entries := ProbeEntries(Dst);
+  try
+    EqStr(Entries[0], IntToStr($800) + ' ' + HexOf(UTF8Encode(NAME)),
+      'convert: an utf8 target keeps the flag');
+  finally
+    Entries.Free;
+  end;
+end;
+
 begin
   Fails := 0;
   Passes := 0;
@@ -845,6 +894,7 @@ begin
   TestUpdateKeepsUtf8;
   TestRenameFallsBack;
   TestMixed;
+  TestConvertHonoursCodePage;
 
   WriteLn('-- other formats keep CJK names');
   TestOtherFormatsCJK;

@@ -7673,9 +7673,10 @@ begin
     ShowError(rsErrNoConvertTarget);
     Exit;
   end;
-  { A conversion always writes UTF-8 names: the entries have already survived one
-    round trip through the filesystem. }
-  S.ForceUtf8 := True;
+  { Keep what the dialog returned: the codepage combo writes the chosen code
+    page into S, and honouring it is the whole point of offering the option for
+    a zip target. The seeded default is still "Auto (UTF-8)" (the seed set
+    ForceUtf8 above and Codepage 0), so an untouched dialog behaves as before. }
 
   StopPreview;
   FModifyMessage := Format(rsStatusConvertedFmt, [ExtractFileName(Target)]);
