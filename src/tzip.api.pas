@@ -449,9 +449,13 @@ begin
   begin
     { ABI v5: names of ZIP entries without the UTF-8 flag decode with this
       code page. Non-ZIP handlers report TZ7Z_E_FORMAT and keep their names
-      untouched, so a failed call is not an open failure. }
+      untouched, so a failed call is not an open failure. Record the code page
+      only when the handler really took it: otherwise the handle's names were
+      decoded by the engine default and detection/rewrite must not assume our
+      code page explains them. }
     if (ANameCodepage > 0) and (H <> nil) then
-      tzip.api.bind._set_name_codepage(H, ANameCodepage);
+      if tzip.api.bind._set_name_codepage(H, ANameCodepage) <> TZ7Z_OK then
+        ANameCodepage := 0;
     AArchive := TTzArchive.Create(H, APath, APassword, ANameCodepage);
   end
   else if AError = '' then

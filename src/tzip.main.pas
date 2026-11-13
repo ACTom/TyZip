@@ -3685,8 +3685,10 @@ var
 begin
   if APath = '' then Exit;
   { A normal open starts from the setting again; only the per-archive menu passes
-    a code page of its own. Nested opens keep the parent's choice. }
-  if (ANameCodepage = 0) and (not AIsNested) then
+    a code page of its own. Nested opens keep the parent's choice, and reopening
+    the SAME archive (after an edit) keeps the current choice too. }
+  if (ANameCodepage = 0) and (not AIsNested) and
+     ((FCtx = nil) or not SameText(FCtx.SourcePath, APath)) then
     FNameEncodingOverride := '';
   HideStartupHint;
   if FJob <> nil then
@@ -4744,6 +4746,7 @@ begin
     Requests[I].ArchivePath := FCtx.SourcePath;
     Requests[I].Password := FCtx.Password;
     Requests[I].Root := Roots[I];
+    Requests[I].NameCodepage := FCtx.NameCodepage;
   end;
   TzStartArchiveDragOut(NSView(FArcList.Handle), NSApp.currentEvent, Requests);
   {$ENDIF}
@@ -6246,6 +6249,8 @@ end;
 
 function TMainForm.HandleJobModify(AJob: TZJob; APurpose: TZJobPurpose;
   AResult: Integer; const AError: string): TJobHandlerOutcome;
+var
+  Cp: LongWord;
 begin
   Result := joContinue;
   if AResult = TZ7Z_OK then
@@ -6262,13 +6267,24 @@ begin
       A top-level archive has no parent; passing the CURRENT context made the new
       one its own parent, which showed "photo.7z > photo.7z" in the breadcrumb and
       made Up return to a stale handle of the same file. The parent of a nested
-      archive is the context that holds the outer one. }
+      archive is the context that holds the outer one.
+
+      The reopen must carry the code page this view is using, or the edited
+      archive would come back decoded with the setting instead of the per-archive
+      choice (and its names would change under the user). }
+    Cp := 0;
+    if FCtx <> nil then
+    begin
+      Cp := FCtx.NameCodepage;
+      if FNameEncodingOverride <> '' then
+        Cp := TzNameEncodingById(FNameEncodingOverride).Codepage;
+    end;
     if (FCtx <> nil) and FCtx.IsNested then
       StartOpenArchive(AJob.Path, AJob.DisplayName, FCtx.Parent, True, '',
-        False, jpOpenAfterModify, FInnerPath)
+        False, jpOpenAfterModify, FInnerPath, '', Cp)
     else
       StartOpenArchive(AJob.Path, AJob.DisplayName, nil, False, '',
-        False, jpOpenAfterModify, FInnerPath);
+        False, jpOpenAfterModify, FInnerPath, '', Cp);
   end
   else if AResult = TZ7Z_E_CANCEL then
   begin

@@ -34,6 +34,10 @@ type
     ArchivePath: string;
     Password: string;
     Root: TDragOutRoot;
+    { The ZIP name code page the listing was decoded with; the promise thread
+      opens the archive itself, so it must decode names the same way or a
+      dragged folder's children come out mojibake. 0 = engine default. }
+    NameCodepage: LongWord;
   end;
   TDragOutRequests = array of TDragOutRequest;
 
@@ -165,7 +169,8 @@ var
 begin
   Result := '';
   Arc := nil;
-  R := TzOpenArchive(AReq.ArchivePath, AReq.Password, Arc, E);
+  R := TzOpenArchive(AReq.ArchivePath, AReq.Password, Arc, E, nil,
+    AReq.NameCodepage);
   if R <> TZ7Z_OK then Exit(E);
   try
     if AReq.Root.IsDir then
