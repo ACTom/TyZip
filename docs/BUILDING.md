@@ -41,10 +41,20 @@ open bin/TyZip.app
 
 | 脚本 | 产物 |
 |---|---|
-| `build_7zip.sh` | `vendor/7zip-26.03/CPP/7zip/Bundles/Format7zF/_o/7z.so`，`MACOSX_DEPLOYMENT_TARGET=11.0`（同名环境变量可覆盖） |
-| `build_backend.sh` | `lib/libtz7z.dylib`（id `@rpath/libtz7z.dylib`，依赖 `@loader_path/7z.so`）；x86_64 构建还会把 `7z.so` 复制到 `lib/` |
+| `build_7zip.sh` | `lib/7z.so`（x86_64）或 `lib/aarch64-darwin/7z.so`（arm64）：官方 `vendor/` 副本 + `scripts/patches/` 补丁后构建，链接系统 `libiconv`；`MACOSX_DEPLOYMENT_TARGET=11.0`（同名环境变量可覆盖） |
+| `build_backend.sh` | `lib/libtz7z.dylib`（id `@rpath/libtz7z.dylib`，依赖 `@loader_path/7z.so`）；x86_64 直接用 `lib/7z.so`，arm64 用 `lib/aarch64-darwin/7z.so` |
 | `build_app.sh` | `lib/x86_64-darwin/TyZip`，同目录是它的单元 |
 | `package_app.sh` | `bin/TyZip.app`：`Contents/{MacOS,Frameworks,Resources}`，含图标、`Info.plist`、语言包、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`licenses/`；默认 ad-hoc 签名 |
+
+## 7-Zip 补丁与 libiconv
+
+`vendor/7zip-26.03` 是官方源码，**保持原样、不提交本地修改**。TyZip 需要的 ZIP 名称旧代码页支持以补丁形式放在 `scripts/patches/7zip-26.03/`：
+
+- `build_7zip.sh` 每次把 `vendor/7zip-26.03` 复制到 `lib/build/7zip-26.03-src/`，用 `patch -p3` 应用补丁，再以 `O=<私有对象目录>` 构建。补丁应用失败会让构建失败，不会悄悄产出旧库。
+- 补丁让 POSIX 构建用系统 iconv 做 GBK/GB18030/Big5/CP932/CP949/CP1252/Latin-1 的读写转换，并补上“Unix 宿主、无 UTF-8 标志的名字先按 UTF-8 试”的启发式；`7z.so` 因此链接 `/usr/lib/libiconv.2.dylib`（系统库，不改变 minos）。
+- 升级 7-Zip：替换 `vendor/7zip-26.03` → 重新生成并应用补丁 → `tests/run_all.sh`。补丁只碰三个文件：`Common/StringConvert.cpp`、`Archive/Zip/ZipItem.cpp`、`Archive/Zip/ZipHandlerOut.cpp`。
+- 检查：`otool -L lib/7z.so | grep libiconv`。
+
 
 版本号只有一个来源：`packaging/version.txt`；`package_app.sh` 打包时把它写进 `Info.plist` 的 `CFBundleShortVersionString`/`CFBundleVersion`，`packaging/Info.plist` 本身只是模板。
 

@@ -1,0 +1,163 @@
+diff --git a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandlerOut.cpp b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandlerOut.cpp
+index 46ccf3d..017374b 100644
+--- a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandlerOut.cpp
++++ b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandlerOut.cpp
+@@ -297,8 +297,16 @@ Z7_COM7F_IMF(CHandler::UpdateItems(ISequentialOutStream *outStream, UInt32 numIt
+       {
+         bool defaultCharWasUsed;
+         ui.Name = UnicodeStringToMultiByte(name, codePage, '_', defaultCharWasUsed);
++      #ifndef _WIN32
++        /* TyZip: with an explicit legacy code page, a name the code page cannot
++           represent falls back to UTF-8 for that one entry instead of being
++           written as '_'. */
++        tryUtf8 = (defaultCharWasUsed ||
++          MultiByteToUnicodeString(ui.Name, codePage) != name);
++      #else
+         tryUtf8 = (!m_ForceLocal && (defaultCharWasUsed ||
+           MultiByteToUnicodeString(ui.Name, codePage) != name));
++      #endif
+       }
+ 
+       const bool isNonLatin = !name.IsAscii();
+diff --git a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
+index 5684cac..0580d80 100644
+--- a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
++++ b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
+@@ -435,6 +435,17 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
+     
+     if (useSpecifiedCodePage)
+       isUtf8 = (codePage == CP_UTF8);
++    #ifndef _WIN32
++    else if (useSpecifiedCodePage &&
++        GetHostOS() == NFileHeader::NHostOS::kUnix &&
++        Check_UTF8_Buf(s.Ptr(), s.Len(), false))
++    {
++      /* TyZip: the POSIX build lacked the Unix-host UTF-8 heuristic the Windows
++         build has below. Without it a UTF-8 name written without the Utf8 flag
++         (common with mac/Linux tools) was decoded with the legacy code page. */
++      isUtf8 = true;
++    }
++    #endif
+     #ifdef _WIN32
+     else if (GetHostOS() == NFileHeader::NHostOS::kUnix)
+     {
+diff --git a/vendor/7zip-26.03/CPP/Common/StringConvert.cpp b/vendor/7zip-26.03/CPP/Common/StringConvert.cpp
+index 79ff9e0..108ac2d 100644
+--- a/vendor/7zip-26.03/CPP/Common/StringConvert.cpp
++++ b/vendor/7zip-26.03/CPP/Common/StringConvert.cpp
+@@ -7,6 +7,7 @@
+ #ifndef _WIN32
+ // #include <stdio.h>
+ #include <stdlib.h>
++#include <iconv.h>
+ #endif
+ 
+ #if !defined(_WIN32) || defined(ENV_HAVE_LOCALE)
+@@ -259,12 +260,86 @@ static void MultiByteToUnicodeString2_Native(UString &dest, const AString &src)
+ 
+ bool g_ForceToUTF8 = true; // false;
+ 
++/* TyZip: the official POSIX build has no code page tables -- every conversion
++   ends in UTF-8 or a byte-for-byte fallback, so a ZIP name written in a
++   Windows code page (GBK and friends) can neither be read nor written. These
++   helpers add the code pages the ZIP name-encoding setting offers, through the
++   system iconv. Only those explicit code pages take this path; CP_ACP,
++   CP_OEMCP and CP_UTF8 keep the original behaviour. */
++static bool TzIconvName(UINT codePage, const char *&name)
++{
++  switch (codePage)
++  {
++    case 936:   name = "CP936"; return true;
++    case 54936: name = "GB18030"; return true;
++    case 950:   name = "BIG5"; return true;
++    case 932:   name = "CP932"; return true;
++    case 949:   name = "CP949"; return true;
++    case 1252:  name = "CP1252"; return true;
++    case 28591: name = "ISO-8859-1"; return true;
++    default: return false;
++  }
++}
++
++static bool TzIconvConvert(const char *fromName, const char *toName,
++    const char *src, size_t srcLen, AString &dest)
++{
++  dest.Empty();
++  if (srcLen == 0)
++    return true;
++  iconv_t cd = iconv_open(toName, fromName);
++  if (cd == (iconv_t)-1)
++    return false;
++  /* An entry name is at most 64 KB; 6x covers the worst expansion of either
++     direction. A larger result is reported as a failure, not truncated. */
++  const size_t cap = srcLen * 6 + 64;
++  char *out = dest.GetBuf((unsigned)cap);
++  char *inPtr = const_cast<char *>(src);
++  size_t inLeft = srcLen;
++  char *outPtr = out;
++  size_t outLeft = cap;
++  const size_t r = iconv(cd, &inPtr, &inLeft, &outPtr, &outLeft);
++  iconv_close(cd);
++  if (r == (size_t)-1 || inLeft != 0)
++  {
++    dest.ReleaseBuf_SetEnd(0);
++    return false;
++  }
++  dest.ReleaseBuf_SetEnd((unsigned)(outPtr - out));
++  return true;
++}
++
++static bool TzMBToU8(const AString &src, UINT codePage, AString &u8)
++{
++  const char *name = NULL;
++  if (!TzIconvName(codePage, name))
++    return false;
++  return TzIconvConvert(name, "UTF-8", src.Ptr(), src.Len(), u8);
++}
++
++static bool TzU8ToMB(const AString &u8, UINT codePage, AString &mb)
++{
++  const char *name = NULL;
++  if (!TzIconvName(codePage, name))
++    return false;
++  return TzIconvConvert("UTF-8", name, u8.Ptr(), u8.Len(), mb);
++}
++
+ void MultiByteToUnicodeString2(UString &dest, const AString &src, UINT codePage)
+ {
+   dest.Empty();
+   if (src.IsEmpty())
+     return;
+ 
++  {
++    AString utf8;
++    if (TzMBToU8(src, codePage, utf8))
++    {
++      ConvertUTF8ToUnicode(utf8, dest);
++      return;
++    }
++  }
++
+   if (codePage == CP_UTF8 || g_ForceToUTF8)
+   {
+ #if 1
+@@ -393,6 +468,20 @@ static void UnicodeStringToMultiByte2_Native(AString &dest, const UString &src)
+ 
+ static void UnicodeStringToMultiByte2(AString &dest, const UString &src2, UINT codePage, char defaultChar, bool &defaultCharWasUsed)
+ {
++  {
++    /* TyZip: write a name in an explicit legacy code page. When the code page
++       cannot represent a character, iconv fails and the original fallback
++       below runs, which lets ZipHandlerOut write UTF-8 for that entry. */
++    AString utf8, mb;
++    ConvertUnicodeToUTF8(src2, utf8);
++    if (TzU8ToMB(utf8, codePage, mb))
++    {
++      dest = mb;
++      defaultCharWasUsed = false;
++      return;
++    }
++  }
++
+   // if (codePage == 1234567) // for debug purposes
+   if (codePage == CP_UTF8 || g_ForceToUTF8)
+   {

@@ -22,7 +22,8 @@ case "$TARGET" in
   x86_64-darwin)
     ARCH_FLAGS=""
     OUTDIR="$ROOT/lib"
-    SEVEN="$VENDOR/CPP/7zip/Bundles/Format7zF/_o/7z.so"
+    # build_7zip.sh writes the patched library straight into lib/.
+    SEVEN="$ROOT/lib/7z.so"
     BUILD_7ZIP_HINT="scripts/build_7zip.sh"
     ;;
   aarch64-darwin)
@@ -75,12 +76,5 @@ if [[ "$OLD_ID" != "$SEVEN" ]]; then
   install_name_tool -change "$OLD_ID" @loader_path/7z.so "$OUTDIR/libtz7z.dylib"
 fi
 install_name_tool -id @rpath/libtz7z.dylib "$OUTDIR/libtz7z.dylib"
-
-# The bridge loads 7z.so from its own directory, and the packaging script and the
-# tests both take it from there.  For x86_64 that is lib/ (the tests stage it
-# next to the bridge); the arm64 build already has 7z.so in its own directory.
-if [[ "$TARGET" = "x86_64-darwin" ]]; then
-  cp -f "$SEVEN" "$ROOT/lib/7z.so"
-fi
 
 echo "Built $OUTDIR/libtz7z.dylib ($TARGET, macOS $MACOSX_MIN+)"

@@ -1796,10 +1796,14 @@ struct tz7z_archive
   // without a volume size from the caller, so modify refuses instead of
   // collapsing it into a single file and orphaning the old .002... parts.
   bool IsSplit;
+  // The ZIP name code page this handle was opened with (0 = engine default),
+  // for diagnostics and future callers; decoding itself lives in 7-Zip.
+  uint32_t NameCodepage;
   GUID Clsid;
 
   tz7z_archive()
-    : PasswordDefined(false), HasEncrypted(false), CanUpdate(false), IsSplit(false)
+    : PasswordDefined(false), HasEncrypted(false), CanUpdate(false),
+      IsSplit(false), NameCodepage(0)
   {
     memset(&Clsid, 0, sizeof(Clsid));
   }
@@ -2166,6 +2170,40 @@ static bool IsZipFormat(const AString &formatName)
   AString f(formatName);
   f.MakeLower_Ascii();
   return f == "zip";
+}
+
+int tz7z_set_name_codepage(tz7z_archive *archive, uint32_t codepage)
+{
+  TZ7Z_API_TRY
+  if (!archive)
+    return TZ7Z_E_ARG;
+  if (codepage == 0)
+  {
+    archive->NameCodepage = 0;
+    return TZ7Z_OK;
+  }
+  if (!IsZipFormat(archive->FormatName))
+    return TZ7Z_E_FORMAT;
+
+  /* The zip handler implements ISetProperties; "cp" switches its name
+     decoding to the given code page for entries without the UTF-8 flag.
+     Names are decoded lazily by GetProperty, so setting this after Open()
+     takes effect. */
+  CMyComPtr<ISetProperties> sp;
+  if (archive->Arc->QueryInterface(IID_ISetProperties, (void **)&sp) != S_OK || !sp)
+    return TZ7Z_E_FORMAT;
+
+  const wchar_t *names[] = { L"cp" };
+  PROPVARIANT value;
+  InitProp(value);
+  value.vt = VT_UI4;
+  value.ulVal = (UInt32)codepage;
+  if (sp->SetProperties(names, &value, 1) != S_OK)
+    return TZ7Z_E_FORMAT;
+
+  archive->NameCodepage = codepage;
+  return TZ7Z_OK;
+  TZ7Z_API_CATCH_INT
 }
 
 static bool CopyBytes(FILE *in, FILE *out, long long count)

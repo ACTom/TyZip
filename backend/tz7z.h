@@ -55,9 +55,10 @@ extern "C" {
    library validates both and rejects a mismatched caller with TZ7Z_E_ARG and a
    readable error instead of writing into a too-small struct. */
 /* 3 added tz7z_extract_one_prefix; 4 added the progress-info sink below and
-   the *_ex entry points.  The old progress callback and struct layouts are
-   unchanged, so old callers keep working against the same symbols. */
-#define TZ7Z_ABI_VERSION 4u
+   the *_ex entry points; 5 added tz7z_set_name_codepage.  The old progress
+   callback and struct layouts are unchanged, so old callers keep working
+   against the same symbols. */
+#define TZ7Z_ABI_VERSION 5u
 
 typedef struct tz7z_archive tz7z_archive;
 
@@ -208,6 +209,15 @@ int tz7z_open_ex(const char *path, const char *password,
                  const tz7z_progress_sink *sink,
                  tz7z_archive **out_archive,
                  char *err, int err_capacity);
+
+/* ZIP only: the code page used for entry names that do NOT carry the UTF-8
+   name flag (0x0800).  Call it right after tz7z_open, before reading any
+   entry; later calls still affect names not read yet.  0 means "keep the
+   engine default" (the historical byte fallback).  Formats other than ZIP
+   return TZ7Z_E_FORMAT and behave exactly as before.  Entry names with the
+   UTF-8 flag are never affected, and the write side of tz7z_modify takes its
+   code page from tz7z_create_options, not from this handle.  ABI v5. */
+int tz7z_set_name_codepage(tz7z_archive *archive, uint32_t codepage);
 
 void tz7z_close(tz7z_archive *archive);
 
