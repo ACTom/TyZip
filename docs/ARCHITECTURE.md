@@ -101,7 +101,7 @@ TyZip 是一个单一 macOS 应用（Lazarus / Free Pascal + LCL Cocoa，控件�
 
 ## 7-Zip 桥接（ABI v6）
 
-`backend/tz7z.h` 导出打开/关闭、条目、注释、解压/测试、创建/修改、格式表、ABI 版本，以及 ABI v4 的 `*_ex` 入口（`tz7z_open_ex` / `tz7z_extract_ex` / `tz7z_test_ex` / `tz7z_create_ex` / `tz7z_modify_ex`）。FPC 侧 `tzip.api.bind` 绑定它们；写注释走 `tz7z_modify` 的 `comment` / `has_comment` 字段，不单独绑定 `tz7z_set_comment`。旧入口保留，内部以 NULL sink 调用 `*_ex`，所以旧调用方字节不变。跨 ABI 的结构体（`tz7z_entry_info`、`tz7z_input`、`tz7z_create_options`）都以 `struct_size` + `abi_version` 开头，库校验后不符返回 `TZ7Z_E_ARG`，不会写坏调用方内存。
+`backend/tz7z.h` 导出打开/关闭、条目、注释、解压/测试、创建/修改、格式表、ABI 版本，以及 ABI v4 引入的 `*_ex` 入口（`tz7z_open_ex` / `tz7z_extract_ex` / `tz7z_test_ex` / `tz7z_create_ex` / `tz7z_modify_ex`）。FPC 侧 `tzip.api.bind` 绑定它们；写注释走 `tz7z_modify` 的 `comment` / `has_comment` 字段，不单独绑定 `tz7z_set_comment`。旧入口保留，内部以 NULL sink 调用 `*_ex`，所以旧调用方字节不变。跨 ABI 的结构体（`tz7z_entry_info`、`tz7z_input`、`tz7z_create_options`）都以 `struct_size` + `abi_version` 开头，库校验后不符返回 `TZ7Z_E_ARG`，不会写坏调用方内存。
 
 ### ZIP 文件名编码（ABI v5 / v6）
 
@@ -119,7 +119,7 @@ vendor 树保持原样：`scripts/build_7zip.sh` 把 `vendor/7zip-26.03` 复制�
 - **更新保持原编码**：改包前 `TzArchiveNameEncoding` 用 **ABI v6 `tz7z_entry_name_is_legacy`** 问补丁：有没有条目名是按旧代码页（或 Info-ZIP Unicode 扩展字段）读出来的。只看两次解码结果不可靠——扩展字段会让两种代码页都解出正确 Unicode。有则 `Codepage=原代码页、ForceUtf8=False`，否则 `Codepage=65001、ForceUtf8=True`；`tz7z_modify` 在读旧条目名之前用同一个代码页（`options->codepage`），因此 GBK 包改完仍是原来的 GBK 字节。混合包按旧代码页写，单条表示不了的名字走上面的 UTF-8 回退。
 - **界面**：设置里「ZIP 文件名编码」是默认值；查看 → 「名称编码」只对当前顶层 ZIP 生效，选一次就带该代码页重开当前包，不落盘。
 
-ABI v4 的详细进度通过 `tz7z_progress_sink` 传递（`struct_size` + `abi_version` + `fn` + `user`）：`tz7z_progress_info` 带 `phase`（open/extract/create/test）、`event`（tick/item/item_done）、条目索引/总数/名字、以及已知时的累计压缩字节。`*_ex` 在没有 sink 时与旧函数完全等价；旧 `tz7z_progress_fn` 仍按原语义收到 `(completed,total)` tick。`SetCompleted` / `SetRatioInfo` 可能来自编码器内部线程，桥接用一把锁串行化 sink 调用；sink 不允许碰 LCL。设计依据与逐条证据见 `docs/research/7zip-progress-callbacks.md`。
+ABI v4 引入的详细进度通过 `tz7z_progress_sink` 传递（`struct_size` + `abi_version` + `fn` + `user`）：`tz7z_progress_info` 带 `phase`（open/extract/create/test）、`event`（tick/item/item_done）、条目索引/总数/名字、以及已知时的累计压缩字节。`*_ex` 在没有 sink 时与旧函数完全等价；旧 `tz7z_progress_fn` 仍按原语义收到 `(completed,total)` tick。`SetCompleted` / `SetRatioInfo` 可能来自编码器内部线程，桥接用一把锁串行化 sink 调用；sink 不允许碰 LCL。设计依据与逐条证据见 `docs/research/7zip-progress-callbacks.md`。
 
 加载在 `tzip.api.bind.TzLoadLibrary`：按候选路径依次 `LoadLibrary`（macOS 上是 `dlopen`，符号取 `GetProcedureAddress` / `dlsym`）。候选包括可执行文件同目录、`lib/`、`../Frameworks`、`../lib`、`../Resources`、`../../lib`、`../../Frameworks`、`$TYZIP_LIB` 和裸文件名 `libtz7z.dylib`。每个候选先查 `tz7z_format_json` 与 `tz7z_abi_version`，版本必须等于 `TZ7Z_ABI_VERSION = 6`；随后绑定全部符号（含 `*_ex`、`tz7z_set_name_codepage`、`tz7z_entry_name_is_legacy`），缺一个就整体卸载并试下一个候选。
 
