@@ -335,7 +335,8 @@ var
   Name: string;
   R: Integer;
 begin
-  Zip := Root + '/read-gbk.zip';
+  Zip := Root + '/read-nocp.zip';
+  Check(MakeZip(Zip, 'gbk') = TZ7Z_OK, 'read no codepage: fixture');
   R := RawOpenName(Zip, 0, Name);
   Check(R = TZ7Z_OK, 'read no codepage: opened');
   Check(Name <> '', 'read no codepage: the name is still non-empty');
@@ -535,6 +536,22 @@ begin
   Result.ForceUtf8 := True;
 end;
 
+function OneInputMapped(const ADisk, AArc: string): TZInputSet;
+var
+  Disk, Arc: TStringList;
+begin
+  Disk := TStringList.Create;
+  Arc := TStringList.Create;
+  try
+    Disk.Add(ADisk);
+    Arc.Add(AArc);
+    Result := TzCollectInputsMapped(Disk, Arc);
+  finally
+    Arc.Free;
+    Disk.Free;
+  end;
+end;
+
 function OneInput(const ADisk: string): TZInputSet;
 var
   Source: TStringList;
@@ -574,7 +591,7 @@ begin
 
   { Adding a file must not re-encode the existing entry. }
   Shell('printf "x" > "' + Root + '/added.txt"');
-  Set1 := OneInput(Root + '/added.txt');
+  Set1 := OneInputMapped(Root + '/added.txt', '新增.txt');
   try
     Err := '';
     R := TzModify(Zip, '', S, [], Set1.Recs, Err);
@@ -589,8 +606,8 @@ begin
     begin
       EqStr(Entries[0], '0 ' + PyEncodedHex(NAME, 'gbk'),
         'update gbk: the existing name bytes are unchanged');
-      EqStr(Entries[1], '0 ' + PyEncodedHex('added.txt', 'gbk'),
-        'update gbk: the added name is written in the code page');
+      EqStr(Entries[1], '0 ' + PyEncodedHex('新增.txt', 'gbk'),
+        'update gbk: the added chinese name is written in the code page');
     end;
   finally
     Entries.Free;
@@ -613,7 +630,7 @@ begin
   try
     Check(Entries.Count = 1, Format('update gbk: one entry after delete (%d)', [Entries.Count]));
     if Entries.Count = 1 then
-      EqStr(Entries[0], '0 ' + PyEncodedHex('added.txt', 'gbk'),
+      EqStr(Entries[0], '0 ' + PyEncodedHex('新增.txt', 'gbk'),
         'update gbk: the remaining name bytes are unchanged');
   finally
     Entries.Free;
@@ -630,13 +647,20 @@ var
   R: Integer;
 begin
   Zip := Root + '/update-utf8.zip';
-  Check(MakeZip(Zip, 'utf8') = TZ7Z_OK, 'update utf8: fixture');
+  { A FAT host with a flagged UTF-8 name AND an ASCII name. The ASCII entry used
+    to make detection answer "legacy" (an ASCII name decodes the same everywhere,
+    so it carries no encoding), and the next edit then re-encoded the flagged
+    Chinese name and dropped its flag. }
+  Check(MakeRawZipEntries(Zip,
+    [HexOf(UTF8Encode(NAME)) + ':' + IntToStr($800),
+     HexOf(UTF8Encode('plain.txt')) + ':0'], 0),
+    'update utf8: fixture written');
   R := OpenContextAt(Zip, 936, Ctx, Err);
   Check(R = TZ7Z_OK, 'update utf8: opened');
   if R <> TZ7Z_OK then Exit;
   try
     Check(TzArchiveNameEncoding(Ctx.Archive) = 0,
-      'update utf8: the archive is detected as utf8');
+      'update utf8: detected as utf8; ascii names do not make it legacy');
     S := BaseModifySettings;
     TzUpdateSettingsForContext(Ctx, S);
     Check(S.Codepage = 65001, Format('update utf8: reads with 65001 (%d)', [S.Codepage]));
@@ -645,7 +669,7 @@ begin
     Ctx.Free;
   end;
   Shell('printf "x" > "' + Root + '/added2.txt"');
-  Set1 := OneInput(Root + '/added2.txt');
+  Set1 := OneInputMapped(Root + '/added2.txt', '新增.txt');
   try
     Err := '';
     R := TzModify(Zip, '', S, [], Set1.Recs, Err);
@@ -655,13 +679,15 @@ begin
   end;
   Entries := ProbeEntries(Zip);
   try
-    Check(Entries.Count = 2, 'update utf8: two entries');
-    if Entries.Count = 2 then
+    Check(Entries.Count = 3, Format('update utf8: three entries (%d)', [Entries.Count]));
+    if Entries.Count = 3 then
     begin
-      EqStr(Entries[0], IntToStr($800) + ' ' + PyEncodedHex(NAME, 'utf-8'),
-        'update utf8: the existing name stays utf8-flagged');
-      EqStr(Entries[1], '0 ' + PyEncodedHex('added2.txt', 'utf-8'),
-        'update utf8: the added ascii name keeps the flag off');
+      EqStr(Entries[0], IntToStr($800) + ' ' + HexOf(UTF8Encode(NAME)),
+        'update utf8: the flagged name keeps its bytes and flag');
+      EqStr(Entries[1], '0 ' + HexOf(UTF8Encode('plain.txt')),
+        'update utf8: the ascii name keeps its bytes and flag');
+      EqStr(Entries[2], IntToStr($800) + ' ' + HexOf(UTF8Encode('新增.txt')),
+        'update utf8: the added chinese name is written as utf8');
     end;
   finally
     Entries.Free;
@@ -679,7 +705,10 @@ var
   R: Integer;
 begin
   Zip := Root + '/rename-gbk.zip';
-  Check(MakeZip(Zip, 'gbk') = TZ7Z_OK, 'rename: fixture');
+  Check(MakeRawZipEntries(Zip,
+    [PyEncodedHex(NAME, 'gbk') + ':0',
+     PyEncodedHex('另一个.txt', 'gbk') + ':0'], 0),
+    'rename: fixture written');
   Tmp := Root + '/rename-src.bin';
   R := OpenContextAt(Zip, 936, Ctx, Err);
   Check(R = TZ7Z_OK, 'rename: opened');
@@ -711,12 +740,16 @@ begin
   end;
   Entries := ProbeEntries(Zip);
   try
-    Check(Entries.Count = 1, 'rename: one entry');
-    if Entries.Count = 1 then
+    Check(Entries.Count = 2, Format('rename: two entries, one was replaced (%d)', [Entries.Count]));
+    if Entries.Count = 2 then
     begin
-      Check(Pos(IntToStr($800) + ' ', Entries[0]) = 1,
-        'rename: an unrepresentable name falls back to utf8 (' + Entries[0] + ')');
-      EqStr(Copy(Entries[0], 6, MaxInt), PyEncodedHex(EMOJI_NAME, 'utf-8'),
+      { The untouched entry keeps its legacy bytes; only the new name falls back
+        to UTF-8 because GBK cannot represent it. }
+      EqStr(Entries[0], '0 ' + PyEncodedHex('另一个.txt', 'gbk'),
+        'rename: the other entry stays in the code page');
+      Check(Pos(IntToStr($800) + ' ', Entries[1]) = 1,
+        'rename: an unrepresentable name falls back to utf8 (' + Entries[1] + ')');
+      EqStr(Copy(Entries[1], 6, MaxInt), PyEncodedHex(EMOJI_NAME, 'utf-8'),
         'rename: the fallback name is the right utf8 name');
     end;
   finally
@@ -753,7 +786,7 @@ begin
     Ctx.Free;
   end;
   Shell('printf "x" > "' + Root + '/mixed-added.txt"');
-  Set1 := OneInput(Root + '/mixed-added.txt');
+  Set1 := OneInputMapped(Root + '/mixed-added.txt', '新增.txt');
   try
     Err := '';
     R := TzModify(Zip, '', S, [], Set1.Recs, Err);
@@ -770,8 +803,8 @@ begin
         'mixed: the utf8 entry keeps its bytes and flag');
       EqStr(Entries[1], '0 ' + PyEncodedHex(NAME, 'gbk'),
         'mixed: the gbk entry keeps its bytes and flag');
-      EqStr(Entries[2], '0 ' + PyEncodedHex('mixed-added.txt', 'gbk'),
-        'mixed: the added name is written in the code page');
+      EqStr(Entries[2], '0 ' + PyEncodedHex('新增.txt', 'gbk'),
+        'mixed: the added chinese name is written in the code page');
     end;
   finally
     Entries.Free;

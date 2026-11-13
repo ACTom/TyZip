@@ -35,9 +35,10 @@ hash), and any item that failed.
 ## ZIP file-name encoding
 
 - [ ] Open a zip whose Chinese names are GBK bytes without the UTF-8 flag
-      (create it on Windows, or take a known fixture): the listing shows the
-      correct names. Repeat with the default setting on English and on
-      Simplified Chinese — both decode correctly (auto follows the UI language).
+      (create it on Windows, or take a known fixture): with the Simplified
+      Chinese UI the listing shows the correct names out of the box (auto ->
+      GB18030). With the English UI auto -> Windows-1252 cannot decode GBK, so
+      this archive needs View -> Name Encoding -> GB18030.
 - [ ] View → Name Encoding → switch to UTF-8: the names become mojibake; switch
       back to GB18030/GBK: the names are correct again. The setting survives
       navigation inside the archive but resets after closing it.

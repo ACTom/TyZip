@@ -59,4 +59,4 @@ ZIP 只为条目名提供两个选项：带 UTF-8 标志（0x0800）的 UTF-8 �
 - 新增 `tzip.nameenc`（编码表、id、auto 解析），`TAppSettings.NameEncoding` + INI 读写；`TZJob.NameCodepage` / `TArchiveContext.NameCodepage` / `TTzArchive.NameCodepage` 三层透传；设置对话框、查看菜单、i18n 文案。
 - 构建链：`build_7zip.sh` 负责复制/打补丁/链接 iconv；`build_backend.sh` 从打过补丁的源码取头文件，并要求先跑 `build_7zip.sh`。vendor 树保持 `git status` 干净。
 - 测试：`tests/api_encoding.pas` 用 python 写原始 ZIP 字节，覆盖带/不带标志、Unix host、加密、非 ZIP、写入代码页、更新保持、混合包、不可表示名字回退；ABI 相关单测钉住版本 6 与新增符号。
-- 已知非目标：不探测「每条名字各自是什么编码」（ZIP 没有这种元数据）；不会自动重命名已乱码的条目；单包覆盖不跨会话保存。
+- 已知非目标：不探测「每条名字各自是什么编码」（ZIP 没有这种元数据）；不会自动重命名已乱码的条目；单包覆盖不跨会话保存；编码探测在更新开始前同步扫一遍条目名（大包会在界面线程多花一点时间），v1 不把它搬进修改作业。

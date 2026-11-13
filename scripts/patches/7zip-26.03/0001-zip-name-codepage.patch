@@ -36,7 +36,7 @@ index 46ccf3d..017374b 100644
  
        const bool isNonLatin = !name.IsAscii();
 diff --git a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
-index 5684cac..bd1527b 100644
+index 5684cac..f54c6d4 100644
 --- a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
 +++ b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
 @@ -406,6 +406,7 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
@@ -79,14 +79,16 @@ index 5684cac..bd1527b 100644
      #ifdef _WIN32
      else if (GetHostOS() == NFileHeader::NHostOS::kUnix)
      {
-@@ -457,7 +474,10 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
+@@ -457,7 +474,12 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
      ConvertUTF8ToUnicode(s, res);
      return;
    }
 -  
 +
-+  /* TyZip: this name is decoded through the specified legacy code page. */
-+  if (useSpecifiedCodePage)
++  /* TyZip: this name is decoded through the specified legacy code page. ASCII
++     names decode the same under every code page, so they say nothing about the
++     archive's encoding and must not count as legacy. */
++  if (useSpecifiedCodePage && !s.IsAscii())
 +    _tzipNameWasLegacy = true;
    MultiByteToUnicodeString2(res, s, useSpecifiedCodePage ? codePage : GetCodePage());
  }
