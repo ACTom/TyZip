@@ -15,7 +15,7 @@ unit tzip.settings;
 interface
 
 uses
-  Classes, SysUtils, IniFiles, FileUtil, tzip.i18n;
+  Classes, SysUtils, IniFiles, FileUtil, tzip.i18n, tzip.nameenc;
 
 const
   { The range the main form's dividers produce. The INI file is user editable,
@@ -45,6 +45,9 @@ type
     OpenAfterExtract: Boolean;
     DefaultExtractDir: string;
     LastArchiveFormat: string;
+    { ZIP entry-name encoding for names without the UTF-8 flag: a
+      tzip.nameenc id ('auto' resolves from the interface language). }
+    NameEncoding: string;
   end;
 
 { The values a first run starts from. }
@@ -91,6 +94,7 @@ begin
   Result.ConfirmDelete := True;
   Result.OpenAfterExtract := False;
   Result.LastArchiveFormat := '7z';
+  Result.NameEncoding := NameEncodingDefault;
   Result.DefaultExtractDir := IncludeTrailingPathDelimiter(GetUserDir) + 'Downloads';
 end;
 
@@ -138,6 +142,7 @@ begin
       Ini.WriteBool('UI', 'OpenAfterExtract', ASettings.OpenAfterExtract);
       Ini.WriteString('Paths', 'ExtractDir', ASettings.DefaultExtractDir);
       Ini.WriteString('Archive', 'LastFormat', ASettings.LastArchiveFormat);
+      Ini.WriteString('Archive', 'NameEncoding', ASettings.NameEncoding);
       Result := True;
     finally
       Ini.Free;
@@ -247,6 +252,10 @@ begin
         Result.DefaultExtractDir);
       Result.LastArchiveFormat := Ini.ReadString('Archive', 'LastFormat',
         Result.LastArchiveFormat);
+      { A hand-edited or stale id must not reach the engine as a code page:
+        TzNameEncodingById turns anything unknown back into auto. }
+      Result.NameEncoding := TzNameEncodingById(
+        Ini.ReadString('Archive', 'NameEncoding', Result.NameEncoding)).Id;
     finally
       Ini.Free;
     end;

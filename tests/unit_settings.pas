@@ -76,6 +76,7 @@ begin
   EqBool(S.ConfirmDelete, True, 'default: confirm delete');
   EqBool(S.OpenAfterExtract, False, 'default: do not open after extract');
   EqStr(S.LastArchiveFormat, '7z', 'default: archive format');
+  EqStr(S.NameEncoding, 'auto', 'default: ZIP name encoding follows language');
   Check(Pos('Downloads', S.DefaultExtractDir) > 0,
     'default: extract dir is Downloads');
 end;
@@ -106,6 +107,7 @@ begin
   S.OpenAfterExtract := True;
   S.DefaultExtractDir := '/tmp/out';
   S.LastArchiveFormat := 'zip';
+  S.NameEncoding := 'gbk';
 
   Check(SaveSettingsToFile(Path, S), 'roundtrip: saved');
   Check(FileExists(Path), 'roundtrip: file exists');
@@ -124,6 +126,34 @@ begin
   EqBool(Back.OpenAfterExtract, True, 'roundtrip: open after extract');
   EqStr(Back.DefaultExtractDir, '/tmp/out', 'roundtrip: extract dir');
   EqStr(Back.LastArchiveFormat, 'zip', 'roundtrip: archive format');
+  EqStr(Back.NameEncoding, 'gbk', 'roundtrip: ZIP name encoding');
+end;
+
+procedure TestNameEncodingNormalization;
+var
+  Ini: TIniFile;
+  S: TAppSettings;
+  Path: string;
+
+  procedure Expect(const AStored, AWant, AMsg: string);
+  begin
+    Path := Root + '/nameenc.ini';
+    DeleteFile(Path);
+    Ini := TIniFile.Create(Path);
+    try
+      Ini.WriteString('Archive', 'NameEncoding', AStored);
+    finally Ini.Free; end;
+    S := LoadSettingsFromFile(Path);
+    EqStr(S.NameEncoding, AWant, AMsg);
+  end;
+
+begin
+  { The INI file is user editable, and the id is also persisted across
+    versions; only the ids the settings dialog offers are meaningful. }
+  Expect('gbk', 'gbk', 'name encoding: a known id is kept');
+  Expect('GBK', 'gbk', 'name encoding: id matching ignores case');
+  Expect('', 'auto', 'name encoding: empty falls back to auto');
+  Expect('klingon', 'auto', 'name encoding: unknown falls back to auto');
 end;
 
 { --- missing and damaged files ------------------------------------------ }
@@ -296,6 +326,7 @@ begin
 
   TestDefaults;
   TestRoundTrip;
+  TestNameEncodingNormalization;
   TestLanguageNormalization;
   TestWidthClamp;
   TestMissingFile;
