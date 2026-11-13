@@ -12,7 +12,7 @@ unit tzip.i18n;
 interface
 
 uses
-  SysUtils, Classes, IniFiles, FileUtil;
+  SysUtils, Classes, IniFiles, FileUtil, tzip.nameenc;
 
 resourcestring
   { application / shell }
@@ -46,6 +46,18 @@ resourcestring
   rsMenuLanguage = 'Language';
   rsMenuTheme = 'Theme';
   rsMenuAppearance = 'Appearance';
+  rsMenuNameEncoding = 'Name Encoding';
+  { ZIP name-encoding choices. The order lives in tzip.nameenc; these are the
+    labels only. }
+  rsEncFollowSettings = 'Follow Settings';
+  rsEncAutoByLanguage = 'Automatic (by interface language)';
+  rsEncUtf8 = 'UTF-8';
+  rsEncGb18030 = 'GB18030';
+  rsEncGbk = 'GBK';
+  rsEncBig5 = 'Big5';
+  rsEncSjis = 'Shift-JIS';
+  rsEncEuckr = 'EUC-KR';
+  rsEncCp1252 = 'Windows-1252';
   rsMenuAbout = 'About TyZip';
   rsToolNew = 'New';
   rsToolOpen = 'Open';
@@ -171,6 +183,9 @@ resourcestring
   rsDlgIconCacheNone = 'not in use';
   rsDlgIconCacheSizeFmt = '%s in %d files';
   rsDlgIconCacheClearedFmt = 'Removed %d cached icons.';
+  rsDlgNameEncoding = 'ZIP name encoding:';
+  rsDlgNameEncodingNote = 'Used for ZIP entry names without the UTF-8 flag. ' +
+    'Editing an archive keeps the encoding it was opened with.';
   rsDlgClearIconCache = 'Clear Icon Cache';
   rsErrNoArchivesSelected = 'No archives were selected.';
   rsBatchAllOkFmt = 'All %d archives were processed successfully.';
@@ -423,6 +438,11 @@ function TzConfiguredLanguage: string;
 { Language ids offered in Settings. }
 procedure TzLanguageChoices(ANames, AIds: TStrings);
 
+{ The settings dialog's ZIP name-encoding choices, in tzip.nameenc order, and
+  the label for one encoding id (the View menu uses the same labels). }
+procedure TzNameEncodingChoices(ANames, AIds: TStrings);
+function TzNameEncodingLabel(const AId: string): string;
+
 implementation
 
 { The settings and icon-cache folder. FPC builds GetAppConfigDir from the
@@ -531,6 +551,34 @@ begin
   begin
     AIds.Clear; AIds.Add(LanguageSystem); AIds.Add(LanguageEnglish); AIds.Add(LanguageChinese);
   end;
+end;
+
+procedure TzNameEncodingChoices(ANames, AIds: TStrings);
+var
+  I: Integer;
+begin
+  if ANames = nil then Exit;
+  ANames.Clear;
+  for I := 0 to High(NameEncodings) do
+    ANames.Add(TzNameEncodingLabel(NameEncodings[I].Id));
+  if AIds <> nil then
+  begin
+    AIds.Clear;
+    for I := 0 to High(NameEncodings) do
+      AIds.Add(NameEncodings[I].Id);
+  end;
+end;
+
+function TzNameEncodingLabel(const AId: string): string;
+begin
+  if SameText(AId, 'utf8') then Result := rsEncUtf8
+  else if SameText(AId, 'gb18030') then Result := rsEncGb18030
+  else if SameText(AId, 'gbk') then Result := rsEncGbk
+  else if SameText(AId, 'big5') then Result := rsEncBig5
+  else if SameText(AId, 'sjis') then Result := rsEncSjis
+  else if SameText(AId, 'euckr') then Result := rsEncEuckr
+  else if SameText(AId, 'cp1252') then Result := rsEncCp1252
+  else Result := rsEncAutoByLanguage;
 end;
 
 end.

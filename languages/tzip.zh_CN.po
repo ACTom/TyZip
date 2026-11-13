@@ -1070,3 +1070,35 @@ msgstr "正在搜索压缩包"
 
 msgid "Opening…"
 msgstr "正在打开…"
+
+msgid "Name Encoding"
+msgstr "名称编码"
+
+msgid "Follow Settings"
+msgstr "跟随设置"
+
+msgid "Automatic (by interface language)"
+msgstr "自动（按界面语言）"
+
+msgid "GBK"
+msgstr "GBK"
+
+msgid "Big5"
+msgstr "Big5"
+
+msgid "Shift-JIS"
+msgstr "Shift-JIS"
+
+msgid "EUC-KR"
+msgstr "EUC-KR"
+
+msgid "Windows-1252"
+msgstr "Windows-1252"
+
+msgid "ZIP name encoding:"
+msgstr "ZIP 文件名编码："
+
+msgid ""
+"Used for ZIP entry names without the UTF-8 flag. Editing an archive keeps the "
+"encoding it was opened with."
+msgstr "用于没有 UTF-8 标志的 ZIP 条目名。编辑压缩包后会保持打开时的编码。"

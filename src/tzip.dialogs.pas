@@ -23,7 +23,8 @@ uses
   tyControls.Dialogs, tyControls.Dialogs.SelectPath,
   tyControls.Dialogs.FileDialog,
   tzip.i18n, tzip.api, tzip.engine,
-  tzip.ui.dialogkit, tzip.ui.scrollguard, tzip.settings, tzip.extract, tzip.presets, tzip.search,
+  tzip.ui.dialogkit, tzip.ui.scrollguard, tzip.settings, tzip.nameenc,
+  tzip.extract, tzip.presets, tzip.search,
   tzip.ui.icons, tzip.createopts;
 
 type
@@ -198,6 +199,10 @@ type
     FConfirm: TTyCheckBox;
     FOpenAfter: TTyCheckBox;
     FExtractDir: TTyEdit;
+    { Default ZIP name encoding; the combo order and ids come from tzip.nameenc
+      and tzip.i18n, so the stored value is one of its ids. }
+    FNameEncoding: TTyComboBox;
+    FNameEncodingIds: TStringList;
     { Icon cache maintenance: the size is shown next to the button so a user can
       see what clearing it would reclaim. }
     FCacheLabel: TTyLabel;
@@ -1558,17 +1563,28 @@ begin
   NewBodyButton(Body, rsDlgChoose, Pad + Px(428), Pad + Px(299),
     Px(92), Px(cBodyBtnH), @BrowseClick);
 
+  { ZIP name encoding default. Only names without the UTF-8 flag are affected;
+    the note says so, because this is a fallback rather than a forced encoding. }
+  NewLabel(Body, rsDlgNameEncoding, Pad, Pad + Px(340), Px(300), Px(cLabelH));
+  FNameEncodingIds := TStringList.Create;
+  FNameEncoding := NewCombo(Body, Pad, Pad + Px(360), Px(260), Px(cComboH));
+  TzNameEncodingChoices(FNameEncoding.Items, FNameEncodingIds);
+  Idx := FNameEncodingIds.IndexOf(TzNameEncodingById(ASettings.NameEncoding).Id);
+  if Idx < 0 then Idx := 0;
+  FNameEncoding.ItemIndex := Idx;
+  NewLabel(Body, rsDlgNameEncodingNote, Pad, Pad + Px(390), CW, Px(36)).WordWrap := True;
+
   { Icon cache. The size is shown beside the button so the user can see what
     clearing it would reclaim before pressing it. }
-  NewLabel(Body, rsDlgIconCache, Pad, Pad + Px(340), Px(300), Px(cLabelH));
-  FCacheLabel := NewLabel(Body, '', Pad, Pad + Px(360), Px(300), Px(cLabelH));
-  NewBodyButton(Body, rsDlgClearIconCache, Pad + Px(320), Pad + Px(356),
+  NewLabel(Body, rsDlgIconCache, Pad, Pad + Px(440), Px(300), Px(cLabelH));
+  FCacheLabel := NewLabel(Body, '', Pad, Pad + Px(460), Px(300), Px(cLabelH));
+  NewBodyButton(Body, rsDlgClearIconCache, Pad + Px(320), Pad + Px(456),
     Px(150), Px(cBodyBtnH), @ClearCacheClick);
   UpdateCacheLabel;
 
   AddButton(rsDlgSave, mrOk, True, False);
   AddButton(rsDlgCancel, mrCancel, False, True);
-  AutoSizeToContent(CW, Pad + Px(400));
+  AutoSizeToContent(CW, Pad + Px(500));
 end;
 
 procedure TSettingsForm.UpdateCacheLabel;
@@ -1598,6 +1614,7 @@ end;
 destructor TSettingsForm.Destroy;
 begin
   FLanguageIds.Free;
+  FNameEncodingIds.Free;
   inherited Destroy;
 end;
 
@@ -1632,6 +1649,11 @@ begin
   Edited.ConfirmDelete := FConfirm.Checked;
   Edited.OpenAfterExtract := FOpenAfter.Checked;
   Edited.DefaultExtractDir := FExtractDir.Text;
+  if (FNameEncoding.ItemIndex >= 0) and
+     (FNameEncoding.ItemIndex < FNameEncodingIds.Count) then
+    Edited.NameEncoding := FNameEncodingIds[FNameEncoding.ItemIndex]
+  else
+    Edited.NameEncoding := NameEncodingDefault;
   Result := TzApplyDialogSettings(FBase, Edited);
 end;
 

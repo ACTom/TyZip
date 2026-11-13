@@ -500,6 +500,7 @@ begin
   Result.ConfirmDelete := AEdited.ConfirmDelete;
   Result.OpenAfterExtract := AEdited.OpenAfterExtract;
   Result.DefaultExtractDir := AEdited.DefaultExtractDir;
+  Result.NameEncoding := AEdited.NameEncoding;
   { ShowSidebar/ShowPreview, the two pane widths and LastArchiveFormat are not
     edited here: they belong to the main form, and copying AEdited wholesale used
     to zero the widths on every save. The clamp keeps a value loaded from a

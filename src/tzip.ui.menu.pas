@@ -21,7 +21,7 @@ interface
 uses
   Classes, SysUtils, Menus, Forms, Controls, ExtCtrls, LCLType,
   {$IFDEF DARWIN}CocoaConfig, CocoaAll, CocoaMenus,{$ENDIF}
-  tzip.i18n;
+  tzip.i18n, tzip.nameenc;
 
 type
   { Everything the menu needs from the window. Called on click; nil is allowed
@@ -54,6 +54,7 @@ type
     Theme: TNotifyEvent;
     Mode: TNotifyEvent;
     Language: TNotifyEvent;
+    NameEncoding: TNotifyEvent;
     Settings: TNotifyEvent;
     About: TNotifyEvent;
   end;
@@ -66,6 +67,7 @@ type
     Theme: TMenuItem;
     Mode: TMenuItem;
     Language: TMenuItem;
+    NameEncoding: TMenuItem;
     About: TMenuItem;
     Settings: TMenuItem;
   end;
@@ -245,7 +247,8 @@ procedure BuildAppMenu(AMenu: TMainMenu; const ACallbacks: TMenuCallbacks;
   out AParts: TMainMenuParts);
 var
   Owner: TComponent;
-  M: TMenuItem;
+  M, It: TMenuItem;
+  I: Integer;
   {$IFNDEF DARWIN}
   Tools, HelpMenu: TMenuItem;
   {$ENDIF}
@@ -298,6 +301,19 @@ begin
   AParts.Preview := NewLeaf(M, rsMenuPreview, ACallbacks.Preview, Owner);
   AParts.Preview.AutoCheck := True;
   AParts.Preview.Checked := True;
+  { Per-archive ZIP name encoding. The item hints carry the tzip.nameenc id;
+    an empty hint is "follow the setting". Explicit entries start after auto. }
+  AParts.NameEncoding := NewTop(rsMenuNameEncoding, Owner);
+  M.Add(AParts.NameEncoding);
+  It := NewLeaf(AParts.NameEncoding, rsEncFollowSettings,
+    ACallbacks.NameEncoding, Owner);
+  It.Hint := '';
+  for I := 1 to High(NameEncodings) do
+  begin
+    It := NewLeaf(AParts.NameEncoding, TzNameEncodingLabel(NameEncodings[I].Id),
+      ACallbacks.NameEncoding, Owner);
+    It.Hint := NameEncodings[I].Id;
+  end;
   AddSeparator(M, Owner);
   AParts.Theme := NewTop(rsMenuTheme, Owner);
   M.Add(AParts.Theme);

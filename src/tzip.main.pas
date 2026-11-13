@@ -139,6 +139,7 @@ type
     FNewBtn, FOpenBtn, FExtractBtn, FTestBtn, FAddBtn, FDelBtn, FInfoBtn,
     FConvertBtn: TTyGlyphButton;
     FLanguageMenu, FShowHiddenMenu, FThemeMenu, FModeMenu: TMenuItem;
+    FNameEncodingMenu: TMenuItem;
     { About and Settings. On macOS the widgetset places them in the application
       menu; elsewhere they are ordinary items in Tools and Help. }
     FAboutMenu, FSettingsMenu: TMenuItem;
@@ -192,6 +193,9 @@ type
     FFsPath: string;
     FCtx: TArchiveContext;
     FInnerPath: string;
+    { The per-archive ZIP name-encoding choice (a tzip.nameenc id); empty means
+      "follow the setting". Only the current session and archive remember it. }
+    FNameEncodingOverride: string;
     FFilter: string;
     FListing: TListing;
     { Non-empty while the listing shows search results. Kept separate from the
@@ -412,6 +416,10 @@ type
     procedure MenuSidebarClick(Sender: TObject);
     procedure MenuPreviewClick(Sender: TObject);
     procedure MenuLanguageClick(Sender: TObject);
+    procedure MenuNameEncodingClick(Sender: TObject);
+    { Ticks the per-archive name-encoding menu and grays it out unless the
+      current archive is a top-level ZIP. }
+    procedure UpdateNameEncodingMenu;
     procedure MenuThemeClick(Sender: TObject);
     procedure MenuModeClick(Sender: TObject);
     procedure MenuSettingsClick(Sender: TObject);
@@ -2529,6 +2537,7 @@ begin
   CB.Theme := @MenuThemeClick;
   CB.Mode := @MenuModeClick;
   CB.Language := @MenuLanguageClick;
+  CB.NameEncoding := @MenuNameEncodingClick;
   CB.Settings := @MenuSettingsClick;
   CB.About := @MenuAboutClick;
 
@@ -2539,6 +2548,7 @@ begin
   FThemeMenu := P.Theme;
   FModeMenu := P.Mode;
   FLanguageMenu := P.Language;
+  FNameEncodingMenu := P.NameEncoding;
   FAboutMenu := P.About;
   FSettingsMenu := P.Settings;
 
@@ -2585,6 +2595,7 @@ begin
     FMode := nkFiles;
     FCtx := nil;
     FInnerPath := '';
+    FNameEncodingOverride := '';
     FFsList.Visible := True;
     FArcList.Visible := False;
     FFsTree.Visible := True;
@@ -2975,6 +2986,7 @@ begin
   FMode := nkFiles;
   FCtx := nil;
   FInnerPath := '';
+  FNameEncodingOverride := '';
   FFsPath := NewPath;
   FFsList.Visible := True;
   FArcList.Visible := False;
@@ -3672,6 +3684,10 @@ var
   Pw, OpenedFrom: string;
 begin
   if APath = '' then Exit;
+  { A normal open starts from the setting again; only the per-archive menu passes
+    a code page of its own. Nested opens keep the parent's choice. }
+  if (ANameCodepage = 0) and (not AIsNested) then
+    FNameEncodingOverride := '';
   HideStartupHint;
   if FJob <> nil then
   begin
@@ -3963,6 +3979,7 @@ begin
   RefreshArchiveListing;
   SyncArchiveTreeSelection;
   LoadArchiveUi;
+  UpdateNameEncodingMenu;
   { The archive tree has just been shown and has never held focus.  Giving it
     focus here is what makes the very first click on a row select it instead of
     only activating the pane.  Only when we switch from the filesystem list:
@@ -4840,6 +4857,7 @@ begin
       FMode := nkFiles;
       FCtx := nil;
       FInnerPath := '';
+      FNameEncodingOverride := '';
       FFsList.Visible := True;
       FArcList.Visible := False;
       FFsTree.Visible := True;
@@ -6327,6 +6345,7 @@ var
   HasArc, HasSel, CanEdit: Boolean;
   Sel: Integer;
 begin
+  UpdateNameEncodingMenu;
   HasArc := (FMode = nkArchive) and (FCtx <> nil);
   Sel := 0;
   if FMode = nkArchive then Sel := SelectedArchiveRows else Sel := FFsList.DataSelCount;
@@ -8348,6 +8367,56 @@ begin
   FSettings.Language := TMenuItem(Sender).Hint;
   SaveSettings;
   TyShowMessage(rsDlgLanguageRestart);
+end;
+
+{ A per-archive override: re-open the same archive with the chosen code page.
+  The override belongs to this session only; closing or opening another archive
+  goes back to the setting. }
+procedure TMainForm.MenuNameEncodingClick(Sender: TObject);
+var
+  Id: string;
+  Cp: LongWord;
+begin
+  if (FCtx = nil) or (FJob <> nil) then Exit;
+  if FCtx.Parent <> nil then Exit;
+  if not SameText(FCtx.FormatName, 'zip') then Exit;
+  Id := '';
+  if Sender is TMenuItem then Id := TMenuItem(Sender).Hint;
+  if Id = '' then
+  begin
+    FNameEncodingOverride := '';
+    Cp := 0;
+  end
+  else
+  begin
+    FNameEncodingOverride := TzNameEncodingById(Id).Id;
+    Cp := TzNameEncodingById(FNameEncodingOverride).Codepage;
+    { auto has no code page of its own: it means "follow the setting". }
+    if Cp = 0 then FNameEncodingOverride := '';
+  end;
+  UpdateNameEncodingMenu;
+  StartOpenArchive(FCtx.SourcePath, ExtractFileName(FCtx.SourcePath), nil, False,
+    FCtx.OpenedFromFs, False, jpOpenAfterModify, FInnerPath, '', Cp);
+end;
+
+procedure TMainForm.UpdateNameEncodingMenu;
+var
+  I: Integer;
+  It: TMenuItem;
+  CanChange: Boolean;
+begin
+  if FNameEncodingMenu = nil then Exit;
+  CanChange := (FMode = nkArchive) and (FCtx <> nil) and (FCtx.Parent = nil) and
+    SameText(FCtx.FormatName, 'zip') and (FJob = nil);
+  FNameEncodingMenu.Enabled := CanChange;
+  for I := 0 to FNameEncodingMenu.Count - 1 do
+  begin
+    It := FNameEncodingMenu.Items[I];
+    if It.Hint = '' then
+      It.Checked := FNameEncodingOverride = ''
+    else
+      It.Checked := SameText(FNameEncodingOverride, It.Hint);
+  end;
 end;
 
 procedure TMainForm.UpdateLanguageChecks;
