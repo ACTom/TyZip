@@ -129,6 +129,10 @@ type
     { The ZIP name code page this handle was opened with (0 = engine
       default), so update/detection code can reuse it without guessing. }
     FNameCodepage: LongWord;
+    { Cached result of TzArchiveNameEncoding: 0 = UTF-8 (or unknown), other-
+      wise the legacy code page the archive's names were decoded with. }
+    FDetectedEncoding: LongWord;
+    FDetectedValid: Boolean;
   public
     constructor Create(AHandle: Pointer; const APath, APassword: string;
       ANameCodepage: LongWord = 0);
@@ -158,6 +162,12 @@ function TzFormatByName(const AName: string): TFormatInfo;
 function TzOpenArchive(const APath, APassword: string; out AArchive: TTzArchive;
   out AError: string; AProgress: TZ7ZProgressSink = nil;
   ANameCodepage: LongWord = 0): Integer;
+
+{ What encoding this ZIP's names really are: 0 when they are UTF-8 (flagged, or
+  valid UTF-8 without a flag) or when the handle was opened without a code
+  page; otherwise the legacy code page. A rewrite uses this so editing an
+  archive does not change its name encoding. Cached per handle. }
+function TzArchiveNameEncoding(AArchive: TTzArchive): LongWord;
 function TzExtract(AArchive: TTzArchive; const AIndices: array of LongWord;
   const AOutDir, APassword: string; out AError: string;
   AProgress: TZ7ZProgressSink = nil): Integer;
@@ -446,6 +456,30 @@ begin
   end
   else if AError = '' then
     AError := TzErrorText(Result);
+end;
+
+function TzArchiveNameEncoding(AArchive: TTzArchive): LongWord;
+var
+  I: Integer;
+begin
+  Result := 0;
+  if AArchive = nil then Exit;
+  if AArchive.FDetectedValid then Exit(AArchive.FDetectedEncoding);
+  AArchive.FDetectedEncoding := 0;
+  AArchive.FDetectedValid := True;
+  if (AArchive.Handle = nil) or (AArchive.Count = 0) then Exit;
+  if (AArchive.NameCodepage = 0) or (AArchive.NameCodepage = 65001) then Exit;
+  if not SameText(AArchive.FormatName, 'zip') then Exit;
+  { The engine records, per name, whether it had to go through a legacy code
+    page (or the Info-ZIP Unicode extra field). One such name is enough: the
+    archive is legacy. A rewrite then uses the same code page, and the writer
+    falls back to UTF-8 per entry for names the code page cannot represent. }
+  for I := 0 to AArchive.Count - 1 do
+    if tzip.api.bind._entry_name_is_legacy(AArchive.Handle, LongWord(I)) > 0 then
+    begin
+      AArchive.FDetectedEncoding := AArchive.NameCodepage;
+      Exit(AArchive.FDetectedEncoding);
+    end;
 end;
 
 function TzExtract(AArchive: TTzArchive; const AIndices: array of LongWord;

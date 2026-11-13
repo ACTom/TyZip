@@ -48,6 +48,16 @@ if [[ ! -f "$SEVEN" ]]; then
   exit 1
 fi
 
+# The bridge must compile against the same headers as the patched library: the
+# ZIP name-encoding patch adds a PROPID the bridge reads. build_7zip.sh leaves
+# the patched source under lib/build/, and the vendored tree stays pristine.
+PATCHED_CPP="$ROOT/lib/build/7zip-26.03-src/CPP"
+if [[ ! -f "$PATCHED_CPP/7zip/PropID.h" ]]; then
+  echo "Missing $PATCHED_CPP/7zip/PropID.h" >&2
+  echo "Run scripts/build_7zip.sh first so the patched source exists." >&2
+  exit 1
+fi
+
 cd "$ROOT/backend"
 # Word-split on purpose: ARCH_FLAGS is empty for x86_64 and "-arch arm64" for
 # the cross build.  (An array would be safer, but bash 3.2 + set -u treats an
@@ -57,7 +67,7 @@ cd "$ROOT/backend"
   -mmacosx-version-min="$MACOSX_MIN" \
   -DENV_MACOSX -DENV_UNIX -DENV_HAVE_WCHAR__H -DENV_HAVE_WCTYPE_H \
   -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_REENTRANT \
-  -I. -I"$VENDOR/CPP" \
+  -I. -I"$PATCHED_CPP" -I"$VENDOR/CPP" \
   tz7z.cpp \
   "$VENDOR/CPP/Common/UTFConvert.cpp" \
   "$VENDOR/CPP/Common/MyString.cpp" \

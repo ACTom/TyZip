@@ -49,8 +49,9 @@ begin
   EqInt(TZ7Z_E_IO, -10, 'codes: io');
   EqInt(TZ7Z_E_UNSUPPORTED, -11, 'codes: unsupported');
   { ABI v3 added tz7z_extract_one_prefix, v4 the progress sink, v5
-    tz7z_set_name_codepage; the struct layouts stayed at v2. }
-  EqInt(TZ7Z_ABI_VERSION, 5, 'abi: revision the loader requires');
+    tz7z_set_name_codepage, v6 tz7z_entry_name_is_legacy; the struct layouts
+    stayed at v2. }
+  EqInt(TZ7Z_ABI_VERSION, 6, 'abi: revision the loader requires');
 end;
 
 procedure TestClassification;

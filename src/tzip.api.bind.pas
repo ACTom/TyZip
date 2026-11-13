@@ -8,7 +8,7 @@ const
   { ABI revision of the struct layouts below. Every struct crossing the ABI
     starts with its own size and this value; the library rejects a mismatch
     instead of writing into a buffer of the wrong shape. }
-  TZ7Z_ABI_VERSION     =  5;
+  TZ7Z_ABI_VERSION     =  6;
 
 { The three records below are handed to the C library byte for byte: their
   field offsets and total sizes must be C's, so their packing is stated
@@ -130,6 +130,7 @@ var
     out Archive: Pointer; Err: PAnsiChar; ErrCap: LongInt): LongInt; cdecl;
   _close: procedure(Archive: Pointer); cdecl;
   _set_name_codepage: function(Archive: Pointer; Codepage: LongWord): LongInt; cdecl;
+  _entry_name_is_legacy: function(Archive: Pointer; Index: LongWord): LongInt; cdecl;
   _entry_count: function(Archive: Pointer): LongInt; cdecl;
   _format_name: function(Archive: Pointer): PAnsiChar; cdecl;
   _has_encrypted: function(Archive: Pointer): LongInt; cdecl;
@@ -319,6 +320,7 @@ begin
   Pointer(_open_ex)       := GetProcedureAddress(FLib, 'tz7z_open_ex');
   Pointer(_close)         := GetProcedureAddress(FLib, 'tz7z_close');
   Pointer(_set_name_codepage) := GetProcedureAddress(FLib, 'tz7z_set_name_codepage');
+  Pointer(_entry_name_is_legacy) := GetProcedureAddress(FLib, 'tz7z_entry_name_is_legacy');
   Pointer(_entry_count)   := GetProcedureAddress(FLib, 'tz7z_entry_count');
   Pointer(_format_name)   := GetProcedureAddress(FLib, 'tz7z_format_name');
   Pointer(_has_encrypted) := GetProcedureAddress(FLib, 'tz7z_has_encrypted');
@@ -351,7 +353,7 @@ begin
             Assigned(_create) and Assigned(_modify) and
             Assigned(_open_ex) and Assigned(_extract_ex) and Assigned(_test_ex) and
             Assigned(_create_ex) and Assigned(_modify_ex) and
-            Assigned(_set_name_codepage);
+            Assigned(_set_name_codepage) and Assigned(_entry_name_is_legacy);
   if not Result then
   begin
     UnloadLibrary(FLib);

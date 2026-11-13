@@ -638,6 +638,9 @@ type
       AParent: TArchiveContext; AIsNested: Boolean; const AOpenedFromFs: string;
       AAddHistory: Boolean; APurpose: TZJobPurpose; const AInner: string;
       const AExtractDest: string = ''; ANameCodepage: LongWord = 0);
+    { The settings an update uses: the archive's own format and protection, plus
+      the name encoding it was opened with, so a rewrite does not change it. }
+    function ArchiveUpdateSettings: TCreateSettings;
     function SelectedArchiveIndices(ANeedSelection: Boolean): TLongWordArray;
     function SelectedArchiveRows: Integer;
     function SelectedFsPaths: TStringList;
@@ -3717,6 +3720,12 @@ begin
   StartJob(J, APurpose, rsBusyOpening, ADisplayName, True, True);
 end;
 
+function TMainForm.ArchiveUpdateSettings: TCreateSettings;
+begin
+  Result := TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted);
+  TzUpdateSettingsForContext(FCtx, Result);
+end;
+
 function TMainForm.NodePath(ANode: PTyTreeNode): string;
 var
   I: Integer;
@@ -4534,7 +4543,7 @@ begin
   StopPreview;
   FModifyMessage := Format(rsStatusRenamedFmt, [ExtractFileName(ATarget)]);
   J := TzNewRenameJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
-    TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted),
+    ArchiveUpdateSettings,
     AEntry.Index, AEntry.Name, ATarget);
   J.NameCodepage := FCtx.NameCodepage;
   StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
@@ -7491,7 +7500,7 @@ begin
   StopPreview;
   FModifyMessage := Format(rsStatusWrittenBackFmt, [AEntryPath]);
   J := TzNewRenameJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
-    TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted),
+    ArchiveUpdateSettings,
     Idx, AEntryPath, AEntryPath);
   J.NameCodepage := FCtx.NameCodepage;
   StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
@@ -7524,7 +7533,7 @@ begin
   StopPreview;
   FModifyMessage := rsStatusCommentSaved;
   J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
-    TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted));
+    ArchiveUpdateSettings);
   J.NewComment := AComment;
   J.SetComment := True;
   J.NameCodepage := FCtx.NameCodepage;
@@ -7946,7 +7955,7 @@ begin
     StopPreview;
     FModifyMessage := Format(rsStatusAddedFmt, [Length(APaths)]);
     J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
-      TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted));
+      ArchiveUpdateSettings);
     J.NameCodepage := FCtx.NameCodepage;
     J.Sources := TStringList.Create;
     { Names[i] is exactly APaths[i]'s archive path (built in the first loop), so
@@ -7992,7 +8001,7 @@ begin
     StopPreview;
     FModifyMessage := Format(rsStatusAddedFmt, [Paths.Count]);
     J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
-      TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted), Paths);
+      ArchiveUpdateSettings, Paths);
     J.NameCodepage := FCtx.NameCodepage;
     J.ArcPrefix := FInnerPath;
     StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
@@ -8020,7 +8029,7 @@ begin
     StopPreview;
     FModifyMessage := rsStatusFolderAdded;
     J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
-      TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted), Paths);
+      ArchiveUpdateSettings, Paths);
     J.NameCodepage := FCtx.NameCodepage;
     J.ArcPrefix := FInnerPath;
     StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);
@@ -8050,7 +8059,7 @@ begin
   StopPreview;
   FModifyMessage := Format(rsStatusDeletedFmt, [Length(Indices)]);
   J := TzNewModifyJob(FCtx.SourcePath, FCtx.DisplayName, FCtx.Password,
-    TzModifySettings(FCtx.FormatName, FCtx.Password, FCtx.HasEncrypted));
+    ArchiveUpdateSettings);
   J.NameCodepage := FCtx.NameCodepage;
   J.RemoveIndices := Indices;
   StartJob(J, jpModify, rsBusyUpdating, FCtx.DisplayName, True, True);

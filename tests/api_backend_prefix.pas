@@ -266,7 +266,7 @@ begin
     WriteLn('FAIL tz7z_extract_one_prefix is not exported');
     Halt(2);
   end;
-  Check(TZ7Z_ABI_VERSION = 5, Format('the Pascal side expects ABI 5 (%d)', [TZ7Z_ABI_VERSION]));
+  Check(TZ7Z_ABI_VERSION = 6, Format('the Pascal side expects ABI 6 (%d)', [TZ7Z_ABI_VERSION]));
 
   WriteLn('-- prefix sizes and contents');
   TestPrefixSizes;

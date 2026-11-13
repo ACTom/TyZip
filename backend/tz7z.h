@@ -55,10 +55,10 @@ extern "C" {
    library validates both and rejects a mismatched caller with TZ7Z_E_ARG and a
    readable error instead of writing into a too-small struct. */
 /* 3 added tz7z_extract_one_prefix; 4 added the progress-info sink below and
-   the *_ex entry points; 5 added tz7z_set_name_codepage.  The old progress
-   callback and struct layouts are unchanged, so old callers keep working
-   against the same symbols. */
-#define TZ7Z_ABI_VERSION 5u
+   the *_ex entry points; 5 added tz7z_set_name_codepage; 6 added
+   tz7z_entry_name_is_legacy.  The old progress callback and struct layouts are
+   unchanged, so old callers keep working against the same symbols. */
+#define TZ7Z_ABI_VERSION 6u
 
 typedef struct tz7z_archive tz7z_archive;
 
@@ -218,6 +218,14 @@ int tz7z_open_ex(const char *path, const char *password,
    UTF-8 flag are never affected, and the write side of tz7z_modify takes its
    code page from tz7z_create_options, not from this handle.  ABI v5. */
 int tz7z_set_name_codepage(tz7z_archive *archive, uint32_t codepage);
+
+/* ZIP only: 1 when this entry's name had to be decoded through a legacy code
+   page (or through the Info-ZIP Unicode name extra field, which the engine
+   treats the same way), 0 when it is UTF-8 or ASCII.  This is how the caller
+   decides whether rewriting the archive must keep its code page.  Call it
+   after tz7z_entry_name for the same index (the name is what records the
+   answer), or it decodes the name itself.  ABI v6. */
+int tz7z_entry_name_is_legacy(tz7z_archive *archive, uint32_t index);
 
 void tz7z_close(tz7z_archive *archive);
 

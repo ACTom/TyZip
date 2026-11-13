@@ -440,6 +440,344 @@ begin
   end;
 end;
 
+{ --- rewriting keeps the archive's name encoding ----------------------- }
+
+function RawZipEntriesScript: string;
+begin
+  Result := Root + '/make-raw-zip-entries.py';
+  if not FileExists(Result) then
+    Shell('cat > "' + Result + '" <<''PY''' + LineEnding +
+      'import struct, sys, zlib' + LineEnding +
+      'path = sys.argv[1]' + LineEnding +
+      'host = int(sys.argv[2])' + LineEnding +
+      'pairs = sys.argv[3:]' + LineEnding +
+      'data = b"payload"' + LineEnding +
+      'crc = zlib.crc32(data) & 0xffffffff' + LineEnding +
+      'made = (host << 8) | 20' + LineEnding +
+      'body = b""' + LineEnding +
+      'central = b""' + LineEnding +
+      'offset = 0' + LineEnding +
+      'for p in pairs:' + LineEnding +
+      '    hx, fl = p.split(":")' + LineEnding +
+      '    name = bytes.fromhex(hx)' + LineEnding +
+      '    flags = int(fl)' + LineEnding +
+      '    lfh = struct.pack("<IHHHHHIIIHH", 0x04034b50, 20, flags, 0, 0, 0, crc, len(data), len(data), len(name), 0) + name' + LineEnding +
+      '    cdh = struct.pack("<IHHHHHHIIIHHHHHII", 0x02014b50, made, 20, flags, 0, 0, 0, crc, len(data), len(data), len(name), 0, 0, 0, 0, 0, offset) + name' + LineEnding +
+      '    body += lfh + data' + LineEnding +
+      '    central += cdh' + LineEnding +
+      '    offset += len(lfh) + len(data)' + LineEnding +
+      'eocd = struct.pack("<IHHHHIIH", 0x06054b50, 0, 0, len(pairs), len(pairs), len(central), len(body), 0)' + LineEnding +
+      'open(path, "wb").write(body + central + eocd)' + LineEnding +
+      'PY');
+end;
+
+{ A multi-entry ZIP with exact name bytes/flags per entry. Each element of
+  AEntries is "<namehex>:<flags>". }
+function MakeRawZipEntries(const APath: string;
+  const AEntries: array of string; AHostOS: Word): Boolean;
+var
+  Cmd: string;
+  I: Integer;
+begin
+  DelTree(APath);
+  Cmd := '/usr/bin/python3 ' + QuotedStr(RawZipEntriesScript) + ' ' +
+    QuotedStr(APath) + ' ' + IntToStr(AHostOS);
+  for I := 0 to High(AEntries) do
+    Cmd := Cmd + ' ' + QuotedStr(AEntries[I]);
+  Shell(Cmd);
+  Result := FileExists(APath);
+end;
+
+function EntriesProbeScript: string;
+begin
+  Result := Root + '/probe-entries.py';
+  if not FileExists(Result) then
+    Shell('cat > "' + Result + '" <<''PY''' + LineEnding +
+      'import struct, sys' + LineEnding +
+      'd = open(sys.argv[1], "rb").read()' + LineEnding +
+      'i = 0' + LineEnding +
+      'while True:' + LineEnding +
+      '    i = d.find(b"PK\x01\x02", i)' + LineEnding +
+      '    if i < 0:' + LineEnding +
+      '        break' + LineEnding +
+      '    f = struct.unpack("<H", d[i+8:i+10])[0]' + LineEnding +
+      '    n = struct.unpack("<H", d[i+28:i+30])[0]' + LineEnding +
+      '    print("%d %s" % (f, d[i+46:i+46+n].hex()))' + LineEnding +
+      '    i += 4' + LineEnding +
+      'PY');
+end;
+
+{ One "<flag> <namehex>" line per central-directory entry, in archive order. }
+function ProbeEntries(const AZip: string): TStringList;
+begin
+  Result := TStringList.Create;
+  Result.Text := Trim(Shell('/usr/bin/python3 ' +
+    QuotedStr(EntriesProbeScript) + ' ' + QuotedStr(AZip)));
+end;
+
+function OpenContextAt(const AZip: string; ANameCodepage: LongWord;
+  out ACtx: TArchiveContext; out AErr: string): Integer;
+begin
+  ACtx := nil;
+  AErr := '';
+  Result := TzOpenContext(AZip, ExtractFileName(AZip), '', nil, False, AZip,
+    ACtx, AErr, nil, ANameCodepage);
+end;
+
+{ The settings an update starts from, before the archive's encoding is applied:
+  keep each entry's method (-1) and write UTF-8 unless the detector says
+  otherwise. }
+function BaseModifySettings: TCreateSettings;
+begin
+  Result := Default(TCreateSettings);
+  Result.FormatName := 'zip';
+  Result.Level := -1;
+  Result.ForceUtf8 := True;
+end;
+
+function OneInput(const ADisk: string): TZInputSet;
+var
+  Source: TStringList;
+begin
+  Source := TStringList.Create;
+  try
+    Source.Add(ADisk);
+    Result := TzCollectInputs(Source, '');
+  finally
+    Source.Free;
+  end;
+end;
+
+procedure TestUpdateKeepsGbk;
+var
+  Zip, Err: string;
+  Ctx: TArchiveContext;
+  S: TCreateSettings;
+  Set1: TZInputSet;
+  Entries: TStringList;
+  R: Integer;
+begin
+  Zip := Root + '/update-gbk.zip';
+  Check(MakeZip(Zip, 'gbk') = TZ7Z_OK, 'update gbk: fixture');
+
+  R := OpenContextAt(Zip, 936, Ctx, Err);
+  Check(R = TZ7Z_OK, 'update gbk: opened (' + Err + ')');
+  if R <> TZ7Z_OK then Exit;
+  try
+    S := BaseModifySettings;
+    TzUpdateSettingsForContext(Ctx, S);
+    Check(S.Codepage = 936, Format('update gbk: writes code page 936 (%d)', [S.Codepage]));
+    Check(not S.ForceUtf8, 'update gbk: does not force utf8 names');
+  finally
+    Ctx.Free;
+  end;
+
+  { Adding a file must not re-encode the existing entry. }
+  Shell('printf "x" > "' + Root + '/added.txt"');
+  Set1 := OneInput(Root + '/added.txt');
+  try
+    Err := '';
+    R := TzModify(Zip, '', S, [], Set1.Recs, Err);
+    Check(R = TZ7Z_OK, Format('update gbk: add returned %d (%s)', [R, Err]));
+  finally
+    TzInputSetFree(Set1);
+  end;
+  Entries := ProbeEntries(Zip);
+  try
+    Check(Entries.Count = 2, Format('update gbk: two entries after add (%d)', [Entries.Count]));
+    if Entries.Count = 2 then
+    begin
+      EqStr(Entries[0], '0 ' + PyEncodedHex(NAME, 'gbk'),
+        'update gbk: the existing name bytes are unchanged');
+      EqStr(Entries[1], '0 ' + PyEncodedHex('added.txt', 'gbk'),
+        'update gbk: the added name is written in the code page');
+    end;
+  finally
+    Entries.Free;
+  end;
+
+  { Deleting the other entry also leaves the surviving bytes alone. }
+  R := OpenContextAt(Zip, 936, Ctx, Err);
+  Check(R = TZ7Z_OK, 'update gbk: reopened for delete');
+  if R <> TZ7Z_OK then Exit;
+  try
+    S := BaseModifySettings;
+    TzUpdateSettingsForContext(Ctx, S);
+  finally
+    Ctx.Free;
+  end;
+  Err := '';
+  R := TzModify(Zip, '', S, [LongWord(0)], [], Err);
+  Check(R = TZ7Z_OK, Format('update gbk: delete returned %d (%s)', [R, Err]));
+  Entries := ProbeEntries(Zip);
+  try
+    Check(Entries.Count = 1, Format('update gbk: one entry after delete (%d)', [Entries.Count]));
+    if Entries.Count = 1 then
+      EqStr(Entries[0], '0 ' + PyEncodedHex('added.txt', 'gbk'),
+        'update gbk: the remaining name bytes are unchanged');
+  finally
+    Entries.Free;
+  end;
+end;
+
+procedure TestUpdateKeepsUtf8;
+var
+  Zip, Err: string;
+  Ctx: TArchiveContext;
+  S: TCreateSettings;
+  Set1: TZInputSet;
+  Entries: TStringList;
+  R: Integer;
+begin
+  Zip := Root + '/update-utf8.zip';
+  Check(MakeZip(Zip, 'utf8') = TZ7Z_OK, 'update utf8: fixture');
+  R := OpenContextAt(Zip, 936, Ctx, Err);
+  Check(R = TZ7Z_OK, 'update utf8: opened');
+  if R <> TZ7Z_OK then Exit;
+  try
+    Check(TzArchiveNameEncoding(Ctx.Archive) = 0,
+      'update utf8: the archive is detected as utf8');
+    S := BaseModifySettings;
+    TzUpdateSettingsForContext(Ctx, S);
+    Check(S.Codepage = 65001, Format('update utf8: reads with 65001 (%d)', [S.Codepage]));
+    Check(S.ForceUtf8, 'update utf8: keeps utf8 names');
+  finally
+    Ctx.Free;
+  end;
+  Shell('printf "x" > "' + Root + '/added2.txt"');
+  Set1 := OneInput(Root + '/added2.txt');
+  try
+    Err := '';
+    R := TzModify(Zip, '', S, [], Set1.Recs, Err);
+    Check(R = TZ7Z_OK, Format('update utf8: add returned %d (%s)', [R, Err]));
+  finally
+    TzInputSetFree(Set1);
+  end;
+  Entries := ProbeEntries(Zip);
+  try
+    Check(Entries.Count = 2, 'update utf8: two entries');
+    if Entries.Count = 2 then
+    begin
+      EqStr(Entries[0], IntToStr($800) + ' ' + PyEncodedHex(NAME, 'utf-8'),
+        'update utf8: the existing name stays utf8-flagged');
+      EqStr(Entries[1], '0 ' + PyEncodedHex('added2.txt', 'utf-8'),
+        'update utf8: the added ascii name keeps the flag off');
+    end;
+  finally
+    Entries.Free;
+  end;
+end;
+
+procedure TestRenameFallsBack;
+var
+  Zip, Tmp, Err: string;
+  Ctx: TArchiveContext;
+  S: TCreateSettings;
+  Disk, Arc: TStringList;
+  Set1: TZInputSet;
+  Entries: TStringList;
+  R: Integer;
+begin
+  Zip := Root + '/rename-gbk.zip';
+  Check(MakeZip(Zip, 'gbk') = TZ7Z_OK, 'rename: fixture');
+  Tmp := Root + '/rename-src.bin';
+  R := OpenContextAt(Zip, 936, Ctx, Err);
+  Check(R = TZ7Z_OK, 'rename: opened');
+  if R <> TZ7Z_OK then Exit;
+  try
+    S := BaseModifySettings;
+    TzUpdateSettingsForContext(Ctx, S);
+    Check(TzExtractOne(Ctx.Archive, 0, Tmp, '', Err) = TZ7Z_OK,
+      'rename: entry extracted (' + Err + ')');
+  finally
+    Ctx.Free;
+  end;
+
+  { The emoji cannot be written in GBK: that entry must fall back to UTF-8. }
+  Disk := TStringList.Create;
+  Arc := TStringList.Create;
+  Set1 := Default(TZInputSet);
+  try
+    Disk.Add(Tmp);
+    Arc.Add(EMOJI_NAME);
+    Set1 := TzCollectInputsMapped(Disk, Arc);
+    Err := '';
+    R := TzModify(Zip, '', S, [LongWord(0)], Set1.Recs, Err);
+    Check(R = TZ7Z_OK, Format('rename: modify returned %d (%s)', [R, Err]));
+  finally
+    TzInputSetFree(Set1);
+    Disk.Free;
+    Arc.Free;
+  end;
+  Entries := ProbeEntries(Zip);
+  try
+    Check(Entries.Count = 1, 'rename: one entry');
+    if Entries.Count = 1 then
+    begin
+      Check(Pos(IntToStr($800) + ' ', Entries[0]) = 1,
+        'rename: an unrepresentable name falls back to utf8 (' + Entries[0] + ')');
+      EqStr(Copy(Entries[0], 6, MaxInt), PyEncodedHex(EMOJI_NAME, 'utf-8'),
+        'rename: the fallback name is the right utf8 name');
+    end;
+  finally
+    Entries.Free;
+  end;
+end;
+
+procedure TestMixed;
+var
+  Zip, Err: string;
+  Ctx: TArchiveContext;
+  S: TCreateSettings;
+  Set1: TZInputSet;
+  Entries: TStringList;
+  R: Integer;
+begin
+  Zip := Root + '/mixed.zip';
+  Check(MakeRawZipEntries(Zip,
+    [HexOf(UTF8Encode(EMOJI_NAME)) + ':' + IntToStr($800),
+     PyEncodedHex(NAME, 'gbk') + ':0'], 0), 'mixed: fixture written');
+  R := OpenContextAt(Zip, 936, Ctx, Err);
+  Check(R = TZ7Z_OK, 'mixed: opened (' + Err + ')');
+  if R <> TZ7Z_OK then Exit;
+  try
+    { Mixed: the safe choice is the legacy code page for writing, with the
+      per-entry UTF-8 fallback keeping the unrepresentable emoji name. }
+    Check(TzArchiveNameEncoding(Ctx.Archive) = 936,
+      'mixed: detection picks the legacy code page');
+    S := BaseModifySettings;
+    TzUpdateSettingsForContext(Ctx, S);
+    Check(S.Codepage = 936, 'mixed: writes code page 936');
+    Check(not S.ForceUtf8, 'mixed: does not force utf8 names');
+  finally
+    Ctx.Free;
+  end;
+  Shell('printf "x" > "' + Root + '/mixed-added.txt"');
+  Set1 := OneInput(Root + '/mixed-added.txt');
+  try
+    Err := '';
+    R := TzModify(Zip, '', S, [], Set1.Recs, Err);
+    Check(R = TZ7Z_OK, Format('mixed: modify returned %d (%s)', [R, Err]));
+  finally
+    TzInputSetFree(Set1);
+  end;
+  Entries := ProbeEntries(Zip);
+  try
+    Check(Entries.Count = 3, Format('mixed: three entries (%d)', [Entries.Count]));
+    if Entries.Count = 3 then
+    begin
+      EqStr(Entries[0], IntToStr($800) + ' ' + HexOf(UTF8Encode(EMOJI_NAME)),
+        'mixed: the utf8 entry keeps its bytes and flag');
+      EqStr(Entries[1], '0 ' + PyEncodedHex(NAME, 'gbk'),
+        'mixed: the gbk entry keeps its bytes and flag');
+      EqStr(Entries[2], '0 ' + PyEncodedHex('mixed-added.txt', 'gbk'),
+        'mixed: the added name is written in the code page');
+    end;
+  finally
+    Entries.Free;
+  end;
+end;
+
 begin
   Fails := 0;
   Passes := 0;
@@ -468,6 +806,12 @@ begin
   TestFlaggedUnaffected;
   TestNoCodepage;
   TestEncryptedZip;
+
+  WriteLn('-- rewriting keeps the name encoding');
+  TestUpdateKeepsGbk;
+  TestUpdateKeepsUtf8;
+  TestRenameFallsBack;
+  TestMixed;
 
   WriteLn('-- other formats keep CJK names');
   TestOtherFormatsCJK;

@@ -131,6 +131,13 @@ function TzExtractInContext(const APath, APassword: string;
   out AError: string; AProgress: TZ7ZProgressSink = nil;
   ANameCodepage: LongWord = 0): Integer;
 
+{ Make an update keep the archive's name encoding: a legacy-named ZIP is written
+  with the same code page (names it cannot represent fall back to UTF-8 per
+  entry), a UTF-8 one stays UTF-8. Formats that are not ZIP and contexts opened
+  without a code page leave ASettings alone. }
+procedure TzUpdateSettingsForContext(ACtx: TArchiveContext;
+  var ASettings: TCreateSettings);
+
 function TzListArchive(AContext: TArchiveContext; const AInnerPath, AFilter: string;
   ASort: TArchiveSortColumn; ADescending: Boolean): TListing;
 
@@ -1773,6 +1780,28 @@ begin
   if FileExists(TmpTar) then DeleteFile(TmpTar);
   if Result = TZ7Z_OK then
     AError := '';
+end;
+
+procedure TzUpdateSettingsForContext(ACtx: TArchiveContext;
+  var ASettings: TCreateSettings);
+var
+  E: LongWord;
+begin
+  if (ACtx = nil) or (ACtx.NameCodepage = 0) then Exit;
+  if not SameText(ACtx.FormatName, 'zip') then Exit;
+  E := TzArchiveNameEncoding(ACtx.Archive);
+  if E > 0 then
+  begin
+    ASettings.Codepage := E;
+    ASettings.ForceUtf8 := False;
+  end
+  else
+  begin
+    { UTF-8 already: say so explicitly, so the rewrite's read side decodes
+      names as UTF-8 too (65001 makes the engine skip the legacy path). }
+    ASettings.Codepage := 65001;
+    ASettings.ForceUtf8 := True;
+  end;
 end;
 
 function TzExtractInContext(const APath, APassword: string;

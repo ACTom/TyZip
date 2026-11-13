@@ -1,3 +1,19 @@
+diff --git a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandler.cpp b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandler.cpp
+index c6b6e39..3855e6d 100644
+--- a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandler.cpp
++++ b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandler.cpp
+@@ -408,6 +408,11 @@ Z7_COM7F_IMF(CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *val
+       prop = res;
+       break;
+     }
++
++    /* TyZip: per-entry answer to "was this name decoded through a legacy code
++       page / the Unicode extra field?". Only meaningful after kpidPath was
++       requested for the same index; the bridge asks for both in that order. */
++    case kpidTzipNameWasLegacy:  prop = item.TzNameWasLegacy(); break;
+     
+     case kpidIsDir:  prop = item.IsDir(); break;
+     case kpidSize:
 diff --git a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandlerOut.cpp b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandlerOut.cpp
 index 46ccf3d..017374b 100644
 --- a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipHandlerOut.cpp
@@ -20,10 +36,31 @@ index 46ccf3d..017374b 100644
  
        const bool isNonLatin = !name.IsAscii();
 diff --git a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
-index 5684cac..6f8ec47 100644
+index 5684cac..bd1527b 100644
 --- a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
 +++ b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.cpp
-@@ -434,7 +434,18 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
+@@ -406,6 +406,7 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
+ {
+   bool isUtf8 = IsUtf8();
+   // bool ignore_Utf8_Errors = true;
++  _tzipNameWasLegacy = false;
+   
+   if (!isUtf8)
+   {
+@@ -426,7 +427,12 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
+             if (Convert_UTF8_Buf_To_Unicode(
+                 (const char *)(const void *)(const Byte *)sb.Data + 5,
+                 sb.Data.Size() - 5, res))
++            {
++              /* TyZip: the extra field exists because the header name is not
++                 UTF-8; a rewrite must keep using the archive's code page. */
++              _tzipNameWasLegacy = true;
+               return;
++            }
+           }
+           break;
+         }
+@@ -434,7 +440,18 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
      }
      
      if (useSpecifiedCodePage)
@@ -42,6 +79,71 @@ index 5684cac..6f8ec47 100644
      #ifdef _WIN32
      else if (GetHostOS() == NFileHeader::NHostOS::kUnix)
      {
+@@ -457,7 +474,10 @@ void CItem::GetUnicodeString(UString &res, const AString &s, bool isComment, boo
+     ConvertUTF8ToUnicode(s, res);
+     return;
+   }
+-  
++
++  /* TyZip: this name is decoded through the specified legacy code page. */
++  if (useSpecifiedCodePage)
++    _tzipNameWasLegacy = true;
+   MultiByteToUnicodeString2(res, s, useSpecifiedCodePage ? codePage : GetCodePage());
+ }
+ 
+diff --git a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.h b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.h
+index 4a25de3..822119e 100644
+--- a/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.h
++++ b/vendor/7zip-26.03/CPP/7zip/Archive/Zip/ZipItem.h
+@@ -294,13 +294,20 @@ public:
+ 
+   bool FromLocal;
+   bool FromCentral;
++
++  /* TyZip: set by GetUnicodeString when the name came from a legacy code page
++     (or the Info-ZIP Unicode extra field) rather than UTF-8. mutable because
++     GetUnicodeString is const; the handler reads it through TzNameWasLegacy. */
++  mutable bool _tzipNameWasLegacy;
++  bool TzNameWasLegacy() const { return _tzipNameWasLegacy; }
+   
+   // CItem can be used as CLocalItem. So we must clear unused fields
+   CItem():
+       InternalAttrib(0),
+       ExternalAttrib(0),
+       FromLocal(false),
+-      FromCentral(false)
++      FromCentral(false),
++      _tzipNameWasLegacy(false)
+   {
+     MadeByVersion.Version = 0;
+     MadeByVersion.HostOS = 0;
+diff --git a/vendor/7zip-26.03/CPP/7zip/Common/PropId.cpp b/vendor/7zip-26.03/CPP/7zip/Common/PropId.cpp
+index b00ad81..0682165 100644
+--- a/vendor/7zip-26.03/CPP/7zip/Common/PropId.cpp
++++ b/vendor/7zip-26.03/CPP/7zip/Common/PropId.cpp
+@@ -112,4 +112,6 @@ const Byte k7z_PROPID_To_VARTYPE[kpid_NUM_DEFINED] =
+   VT_UI4,
+   VT_UI4,
+   VT_UI4  // kpidDevMinor
++  ,
++  VT_BOOL  // kpidTzipNameWasLegacy
+ };
+diff --git a/vendor/7zip-26.03/CPP/7zip/PropID.h b/vendor/7zip-26.03/CPP/7zip/PropID.h
+index e074794..da55ba1 100644
+--- a/vendor/7zip-26.03/CPP/7zip/PropID.h
++++ b/vendor/7zip-26.03/CPP/7zip/PropID.h
+@@ -113,6 +113,11 @@ enum
+   kpidDevMajor,
+   kpidDevMinor,
+ 
++  /* TyZip: 1 when the entry's name had to be decoded through a legacy code
++     page (or the Info-ZIP Unicode extra field) instead of UTF-8. Lets the
++     bridge tell whether a rewrite must keep the archive's code page. */
++  kpidTzipNameWasLegacy,
++
+   kpid_NUM_DEFINED,
+ 
+   kpidUserDefined = 0x10000
 diff --git a/vendor/7zip-26.03/CPP/Common/StringConvert.cpp b/vendor/7zip-26.03/CPP/Common/StringConvert.cpp
 index 79ff9e0..108ac2d 100644
 --- a/vendor/7zip-26.03/CPP/Common/StringConvert.cpp

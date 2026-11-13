@@ -52,8 +52,8 @@ open bin/TyZip.app
 
 - `build_7zip.sh` 每次把 `vendor/7zip-26.03` 复制到 `lib/build/7zip-26.03-src/`，用 `patch -p3` 应用补丁，再以 `O=<私有对象目录>` 构建。补丁应用失败会让构建失败，不会悄悄产出旧库。
 - 补丁让 POSIX 构建用系统 iconv 做 GBK/GB18030/Big5/CP932/CP949/CP1252/Latin-1 的读写转换，并补上“Unix 宿主、无 UTF-8 标志的名字先按 UTF-8 试”的启发式；`7z.so` 因此链接 `/usr/lib/libiconv.2.dylib`（系统库，不改变 minos）。
-- 升级 7-Zip：替换 `vendor/7zip-26.03` → 重新生成并应用补丁 → `tests/run_all.sh`。补丁只碰三个文件：`Common/StringConvert.cpp`、`Archive/Zip/ZipItem.cpp`、`Archive/Zip/ZipHandlerOut.cpp`。
-- 检查：`otool -L lib/7z.so | grep libiconv`。
+- 升级 7-Zip：替换 `vendor/7zip-26.03` → 重新生成并应用补丁 → `tests/run_all.sh`。补丁只碰 `Common/StringConvert.cpp`、`Common/PropId.cpp`、`7zip/PropID.h`、`Archive/Zip/ZipItem.cpp`、`Archive/Zip/ZipItem.h`、`Archive/Zip/ZipHandler.cpp`、`Archive/Zip/ZipHandlerOut.cpp`。
+- 检查：`otool -L lib/7z.so | grep libiconv`。桥接库编译时把 `lib/build/7zip-26.03-src/CPP` 放在包含路径最前（`build_backend.sh`），这样它读到的 PROPID 与打过补丁的库一致。
 
 
 版本号只有一个来源：`packaging/version.txt`；`package_app.sh` 打包时把它写进 `Info.plist` 的 `CFBundleShortVersionString`/`CFBundleVersion`，`packaging/Info.plist` 本身只是模板。

@@ -2172,6 +2172,23 @@ static bool IsZipFormat(const AString &formatName)
   return f == "zip";
 }
 
+int tz7z_entry_name_is_legacy(tz7z_archive *archive, uint32_t index)
+{
+  TZ7Z_API_TRY
+  if (!archive)
+    return TZ7Z_E_ARG;
+  if (index >= (uint32_t)tz7z_entry_count(archive))
+    return TZ7Z_E_ARG;
+  /* The flag is recorded while the name is decoded; decode it first. */
+  GetPropStr(archive->Arc, index, kpidPath);
+  PROPVARIANT prop;
+  InitProp(prop);
+  if (archive->Arc->GetProperty(index, kpidTzipNameWasLegacy, &prop) != S_OK)
+    return 0;
+  return (prop.vt == VT_BOOL && prop.boolVal != VARIANT_FALSE) ? 1 : 0;
+  TZ7Z_API_CATCH_INT
+}
+
 int tz7z_set_name_codepage(tz7z_archive *archive, uint32_t codepage)
 {
   TZ7Z_API_TRY
@@ -3427,6 +3444,13 @@ static int ModifyArchiveInternal(const char *archive_path, const char *password,
              "refusing to collapse a split archive into one file: a volume size is required");
     return TZ7Z_E_ARG;
   }
+
+  /* A rewrite reads every old name through this handle and writes it back with
+     the selected options: decode with the same code page, or an archive whose
+     names are in a legacy code page would be rewritten as mojibake. The caller
+     passes the archive's own code page here when it wants the encoding kept. */
+  if (opt.codepage > 0)
+    tz7z_set_name_codepage(a, opt.codepage);
 
   std::vector<CCreateItem> oldItems;
   std::vector<UString> oldNames;
