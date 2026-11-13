@@ -133,6 +133,11 @@ type
       wise the legacy code page the archive's names were decoded with. }
     FDetectedEncoding: LongWord;
     FDetectedValid: Boolean;
+    { Cached answer to TzArchiveNameCodepageUsed: whether any name's displayed
+      text actually depends on the code page (false for ASCII-only and for
+      names carried by the UTF-8 flag or the Info-ZIP Unicode extra field). }
+    FNameCodepageUsed: Boolean;
+    FNameCodepageUsedValid: Boolean;
   public
     constructor Create(AHandle: Pointer; const APath, APassword: string;
       ANameCodepage: LongWord = 0);
@@ -168,6 +173,13 @@ function TzOpenArchive(const APath, APassword: string; out AArchive: TTzArchive;
   page; otherwise the legacy code page. A rewrite uses this so editing an
   archive does not change its name encoding. Cached per handle. }
 function TzArchiveNameEncoding(AArchive: TTzArchive): LongWord;
+
+{ True when at least one entry name's displayed text depends on the archive's
+  name code page. UTF-8-flagged names, names carried by the Info-ZIP Unicode
+  extra field and ASCII names decode identically under every code page, so an
+  archive made only of those cannot be fixed (or broken) by switching
+  encodings; the UI disables the per-archive menu for it. Cached per handle. }
+function TzArchiveNameCodepageUsed(AArchive: TTzArchive): Boolean;
 function TzExtract(AArchive: TTzArchive; const AIndices: array of LongWord;
   const AOutDir, APassword: string; out AError: string;
   AProgress: TZ7ZProgressSink = nil): Integer;
@@ -484,6 +496,24 @@ begin
       AArchive.FDetectedEncoding := AArchive.NameCodepage;
       Exit(AArchive.FDetectedEncoding);
     end;
+end;
+
+function TzArchiveNameCodepageUsed(AArchive: TTzArchive): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  if AArchive = nil then Exit;
+  if AArchive.FNameCodepageUsedValid then Exit(AArchive.FNameCodepageUsed);
+  AArchive.FNameCodepageUsedValid := True;
+  if (AArchive.Handle = nil) or (AArchive.Count = 0) then Exit;
+  for I := 0 to AArchive.Count - 1 do
+    if tzip.api.bind._entry_name_uses_codepage(AArchive.Handle, LongWord(I)) > 0 then
+    begin
+      Result := True;
+      Break;
+    end;
+  AArchive.FNameCodepageUsed := Result;
 end;
 
 function TzExtract(AArchive: TTzArchive; const AIndices: array of LongWord;

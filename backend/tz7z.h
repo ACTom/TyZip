@@ -56,9 +56,10 @@ extern "C" {
    readable error instead of writing into a too-small struct. */
 /* 3 added tz7z_extract_one_prefix; 4 added the progress-info sink below and
    the *_ex entry points; 5 added tz7z_set_name_codepage; 6 added
-   tz7z_entry_name_is_legacy.  The old progress callback and struct layouts are
-   unchanged, so old callers keep working against the same symbols. */
-#define TZ7Z_ABI_VERSION 6u
+   tz7z_entry_name_is_legacy; 7 added tz7z_entry_name_uses_codepage.  The old
+   progress callback and struct layouts are unchanged, so old callers keep
+   working against the same symbols. */
+#define TZ7Z_ABI_VERSION 7u
 
 typedef struct tz7z_archive tz7z_archive;
 
@@ -226,6 +227,15 @@ int tz7z_set_name_codepage(tz7z_archive *archive, uint32_t codepage);
    after tz7z_entry_name for the same index (the name is what records the
    answer), or it decodes the name itself.  ABI v6. */
 int tz7z_entry_name_is_legacy(tz7z_archive *archive, uint32_t index);
+
+/* ZIP only: 1 when this entry's displayed name actually depends on the handle's
+   name code page, i.e. switching the ZIP name encoding would change it. 0 for
+   UTF-8-flagged names, names carried by the Info-ZIP Unicode extra field and
+   ASCII names -- those decode identically under every code page.  The UI uses
+   this to disable the per-archive encoding menu when it could not change
+   anything.  Call it after tz7z_entry_name for the same index, or it decodes
+   the name itself.  ABI v7. */
+int tz7z_entry_name_uses_codepage(tz7z_archive *archive, uint32_t index);
 
 void tz7z_close(tz7z_archive *archive);
 

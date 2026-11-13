@@ -42,6 +42,10 @@ hash), and any item that failed.
 - [ ] View → Name Encoding → switch to UTF-8: the names become mojibake; switch
       back to GB18030/GBK: the names are correct again. The setting survives
       navigation inside the archive but resets after closing it.
+- [ ] The Name Encoding submenu is grayed out for an archive whose names all
+      carry the UTF-8 flag or the Info-ZIP Unicode extra field (a zip TyZip
+      itself created with a legacy code page qualifies), and enabled for a raw
+      GBK archive without those markers.
 - [ ] The Name Encoding menu is grayed out inside a nested archive, for a
       non-zip archive, and while a job is running.
 - [ ] Extract an entry with a CJK name from the GBK zip — the file on disk has

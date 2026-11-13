@@ -8424,7 +8424,7 @@ var
 begin
   if FNameEncodingMenu = nil then Exit;
   CanChange := (FMode = nkArchive) and (FCtx <> nil) and (FCtx.Parent = nil) and
-    SameText(FCtx.FormatName, 'zip') and (FJob = nil);
+    SameText(FCtx.FormatName, 'zip') and (FJob = nil) and FCtx.NameCodepageUsed;
   FNameEncodingMenu.Enabled := CanChange;
   for I := 0 to FNameEncodingMenu.Count - 1 do
   begin

@@ -46,6 +46,9 @@ type
       inherit the parent's value so a per-archive override keeps working while
       browsing inside. }
     FNameCodepage: LongWord;
+    { Whether some name's text depends on FNameCodepage; filled by the open job
+      on the worker thread so the menu need not scan entries on the UI thread. }
+    FNameCodepageUsed: Boolean;
   public
     constructor Create(AArchive: TTzArchive; const ADisplayName, ASourcePath: string;
       AParent: TArchiveContext; AIsNested: Boolean; const AOpenedFromFs: string;
@@ -67,6 +70,7 @@ type
     property TemporarySource: Boolean read FTemporarySource write FTemporarySource;
     property Cancelled: Boolean read FCancelled;
     property NameCodepage: LongWord read FNameCodepage;
+    property NameCodepageUsed: Boolean read FNameCodepageUsed write FNameCodepageUsed;
     function FormatName: string;
     function HasEncrypted: Boolean;
     function CanUpdate: Boolean;
@@ -812,6 +816,7 @@ begin
   if (FNameCodepage = 0) and (AParent <> nil) then
     FNameCodepage := AParent.NameCodepage;
   if AArchive <> nil then FPassword := AArchive.Password;
+  FNameCodepageUsed := False;
   FCancelled := not Reload(AProgress);
 end;
 

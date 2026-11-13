@@ -20,7 +20,7 @@ const
   C_INPUT_SIZE      = 32;
   C_OPTS_SIZE       = 128;
   { The ABI revision this test is written against; bump with tz7z.h. }
-  C_ABI_VERSION     = 6;
+  C_ABI_VERSION     = 7;
 
 type
   TAbiVersionFn = function: LongWord; cdecl;

@@ -453,6 +453,11 @@ begin
   Result := TzOpenContext(AJob.FOpen.Path, AJob.FOpen.DisplayName,
     AJob.FOpen.Password, AJob.FOpen.Parent, AJob.FOpen.IsNested,
     AJob.FOpen.OpenedFromFs, AJob.Ctx, AError, AJob.FSink, AJob.NameCodepage);
+  { Whether switching the name encoding could change anything. Answered here, on
+    the worker, so a large archive is never scanned on the UI thread when the
+    View menu refreshes. }
+  if (Result = TZ7Z_OK) and (AJob.Ctx <> nil) then
+    AJob.Ctx.NameCodepageUsed := TzArchiveNameCodepageUsed(AJob.Ctx.Archive);
 end;
 
 function TZJobExecutor.ListJob(AJob: TZJob; out AError: string): Integer;

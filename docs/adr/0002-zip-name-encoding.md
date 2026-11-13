@@ -31,6 +31,7 @@ ZIP 只为条目名提供两个选项：带 UTF-8 标志（0x0800）的 UTF-8 �
 
 - **v5 `tz7z_set_name_codepage(archive, cp)`**：只对 ZIP 生效；`cp=0` 保持历史行为；带 UTF-8 标志的名字永远不受影响；非 ZIP 返回 `TZ7Z_E_FORMAT`，调用方忽略。
 - **v6 `tz7z_entry_name_is_legacy(archive, index)`**：告诉应用「这条名字是不是按旧代码页/Info-ZIP Unicode 扩展字段读出来的」。
+- **v7 `tz7z_entry_name_uses_codepage(archive, index)`**：收窄版——只有「名字文本真的由代码页决定」才为 1；UTF-8 标志名、Info-ZIP Unicode 扩展名、ASCII 名都是 0。查看菜单用它决定是否置灰（切换不会改变显示时禁用）。
 
 结构体布局不变，旧调用方二进制兼容；Pascal 侧 `tzip.api.bind` 的整体符号校验要求 ABI 版本等于 6。
 

@@ -908,6 +908,72 @@ begin
   EqStr(Name, CyrName, 'cp1251: the name is read back through the code page');
 end;
 
+{ The menu-disable signal: only names decoded through the code page change
+  their displayed text when the encoding changes. }
+procedure TestCodepageUsed;
+var
+  Zip, Err: string;
+  A: TTzArchive;
+begin
+  Zip := Root + '/used-raw-gbk.zip';
+  Check(MakeRawZipEntries(Zip, [PyEncodedHex(NAME, 'gbk') + ':0'], 0),
+    'used: raw gbk fixture');
+  A := nil;
+  Err := '';
+  Check(TzOpenArchive(Zip, '', A, Err, nil, 936) = TZ7Z_OK,
+    'used: raw gbk opened (' + Err + ')');
+  if A <> nil then
+  try
+    Check(TzArchiveNameCodepageUsed(A),
+      'used: a raw gbk name depends on the code page');
+  finally
+    A.Free;
+  end;
+
+  Zip := Root + '/used-utf8.zip';
+  Check(MakeZip(Zip, 'utf8') = TZ7Z_OK, 'used: flagged utf8 fixture');
+  A := nil;
+  Err := '';
+  Check(TzOpenArchive(Zip, '', A, Err, nil, 936) = TZ7Z_OK, 'used: flagged utf8 opened');
+  if A <> nil then
+  try
+    Check(not TzArchiveNameCodepageUsed(A),
+      'used: a flagged utf8 name does not depend on the code page');
+  finally
+    A.Free;
+  end;
+
+  { Our own legacy writer adds the Info-ZIP Unicode extra field; those names
+    decode correctly under every code page, so switching cannot change them. }
+  Zip := Root + '/used-extra.zip';
+  Check(MakeZip(Zip, 'gbk') = TZ7Z_OK, 'used: unicode-extra fixture');
+  A := nil;
+  Err := '';
+  Check(TzOpenArchive(Zip, '', A, Err, nil, 936) = TZ7Z_OK, 'used: unicode-extra opened');
+  if A <> nil then
+  try
+    Check(not TzArchiveNameCodepageUsed(A),
+      'used: a unicode-extra name does not depend on the code page');
+  finally
+    A.Free;
+  end;
+
+  Zip := Root + '/used-mixed.zip';
+  Check(MakeRawZipEntries(Zip,
+    [HexOf(UTF8Encode(NAME)) + ':' + IntToStr($800),
+     PyEncodedHex(NAME, 'gbk') + ':0'], 0), 'used: mixed fixture');
+  A := nil;
+  Err := '';
+  Check(TzOpenArchive(Zip, '', A, Err, nil, 936) = TZ7Z_OK, 'used: mixed opened');
+  if A <> nil then
+  try
+    Check(TzArchiveNameCodepageUsed(A),
+      'used: a mixed archive still depends on the code page');
+  finally
+    A.Free;
+  end;
+end;
+
 begin
   Fails := 0;
   Passes := 0;
@@ -944,6 +1010,8 @@ begin
   TestRenameFallsBack;
   TestMixed;
   TestConvertHonoursCodePage;
+  WriteLn('-- the menu-disable signal');
+  TestCodepageUsed;
 
   WriteLn('-- other formats keep CJK names');
   TestOtherFormatsCJK;

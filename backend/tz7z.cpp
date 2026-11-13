@@ -2189,6 +2189,23 @@ int tz7z_entry_name_is_legacy(tz7z_archive *archive, uint32_t index)
   TZ7Z_API_CATCH_INT
 }
 
+int tz7z_entry_name_uses_codepage(tz7z_archive *archive, uint32_t index)
+{
+  TZ7Z_API_TRY
+  if (!archive)
+    return TZ7Z_E_ARG;
+  if (index >= (uint32_t)tz7z_entry_count(archive))
+    return TZ7Z_E_ARG;
+  /* The flag is recorded while the name is decoded; decode it first. */
+  GetPropStr(archive->Arc, index, kpidPath);
+  PROPVARIANT prop;
+  InitProp(prop);
+  if (archive->Arc->GetProperty(index, kpidTzipNameUsesCodePage, &prop) != S_OK)
+    return 0;
+  return (prop.vt == VT_BOOL && prop.boolVal != VARIANT_FALSE) ? 1 : 0;
+  TZ7Z_API_CATCH_INT
+}
+
 int tz7z_set_name_codepage(tz7z_archive *archive, uint32_t codepage)
 {
   TZ7Z_API_TRY
