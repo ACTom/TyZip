@@ -46,7 +46,7 @@ uses
   tzip.rename, tzip.editwrite,
   { UI units last: they inherit from the tyControls types listed above. }
   tzip.ui.arclist, tzip.ui.fslist, tzip.ui.sidebartree,
-  tzip.ui.arctree, tzip.ui.scrollguard;
+  tzip.ui.arctree, tzip.ui.scrollguard, tzip.ui.focus;
 
 type
   TZ7ZInputArray = array of TZ7ZInput;
@@ -1233,13 +1233,9 @@ begin
   if not FReady then Exit;
   if FMode = nkArchive then
   begin
-    if (FArcList <> nil) and FArcList.CanFocus and FArcList.Visible then
+    if (FArcList <> nil) and FArcList.Visible then
     begin
-      try
-        FArcList.SetFocus;
-      except
-        { focus is cosmetic; never let it break startup }
-      end;
+      TzFocusIfPossible(FArcList);
       Exit;
     end;
   end;
@@ -3538,7 +3534,7 @@ begin
   FPathEdit.Width := FBreadcrumb.Width;
   FPathEdit.Visible := True;
   FBreadcrumb.Visible := False;
-  FPathEdit.SetFocus;
+  TzFocusIfPossible(FPathEdit);
   FPathEdit.SelStart := 0;
   FPathEdit.SelLength := Length(FPathEdit.Text);
 end;
@@ -3602,7 +3598,7 @@ var
   function AbortPath(const AMsg: string): Boolean;
   begin
     if AMsg <> '' then ShowError(AMsg);
-    if FPathEdit <> nil then FPathEdit.SetFocus;
+    if FPathEdit <> nil then TzFocusIfPossible(FPathEdit);
     Result := False;
   end;
 
@@ -3987,9 +3983,8 @@ begin
     only activating the pane.  Only when we switch from the filesystem list:
     re-focusing on every in-archive navigation would yank focus out of the
     sidebar tree the user just clicked. }
-  if EnterFromFiles and FReady and (FArcList.CanFocus) and
-     (not FArcList.Focused) then
-    FArcList.SetFocus;
+  if EnterFromFiles and FReady and (not FArcList.Focused) then
+    TzFocusIfPossible(FArcList);
   { The filesystem list that started the open has been hidden underneath; if LCL
     still has it as the mouse-capture window, hover stays dead for the whole
     window. }
@@ -6225,7 +6220,10 @@ begin
     { Creating always offers the new archive: this was a field that was only ever
       set to True, so the condition was always true (and a batch created one
       reopen job per archive). }
-    if TzIsArchiveName(AJob.Path) then
+    { A cold-start service has no window and is about to quit: opening the
+      archive it just wrote would only do the work invisibly (and used to land
+      a focus request on the hidden window). }
+    if (not FServiceMode) and TzIsArchiveName(AJob.Path) then
     begin
       SrcPath := AJob.Path;
       if (AJob.Settings.VolumeSize > 0) and FileExists(SrcPath + '.001') then
@@ -6675,11 +6673,7 @@ procedure TMainForm.FocusFsList(AData: PtrInt);
 begin
   if (not FReady) or (FMode <> nkFiles) or (FFsList = nil) then Exit;
   if not FFsList.Visible then Exit;
-  try
-    FFsList.SetFocus;
-  except
-    { focus is cosmetic; never let it break navigation }
-  end;
+  TzFocusIfPossible(FFsList);
 end;
 
 { LCL keeps mouse capture on the control that received the button-down until it

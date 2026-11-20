@@ -36,6 +36,7 @@ PROGS=(
   unit_preview
   unit_services_paths
   tree_selection_events
+  ui_focus_guard
 )
 
 for prog in "${PROGS[@]}"; do
